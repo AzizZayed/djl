@@ -10,32 +10,47 @@
  * OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package ai.djl.examples.inference;
+package ai.djl.benchmark;
 
-import ai.djl.examples.inference.benchmark.Benchmark;
-import ai.djl.examples.inference.benchmark.MultithreadedBenchmark;
 import org.testng.annotations.Test;
 
 public class BenchmarkTest {
 
     @Test
+    public void testHelp() {
+        String[] args = {"-h"};
+        new Benchmark().runBenchmark(args);
+    }
+
+    @Test
     public void testBenchmark() {
         String[] args = {
-            "-c",
-            "2",
-            "-i",
-            "src/test/resources/segmentation.jpg",
-            "-r",
-            "{'layers':'18','flavor':'v1'}"
+            "-a", "resnet", "-s", "1,3,224,224", "-c", "2", "-r", "{'layers':'18','flavor':'v1'}"
         };
         new Benchmark().runBenchmark(args);
     }
 
     @Test
     public void testMultithreadedBenchmark() {
-        String[] args = {
-            "-c", "2", "-s", "(1,3,224,224)f", "-r", "{'layers':'18','flavor':'v1'}", "-t", "2"
-        };
-        new MultithreadedBenchmark().runBenchmark(args);
+        System.setProperty("collect-memory", "true");
+        try {
+            String[] args = {
+                "-a",
+                "resnet",
+                "-s",
+                "(1,3,224,224)f",
+                "-d",
+                "1",
+                "-c",
+                "2",
+                "-r",
+                "{'layers':'18','flavor':'v1'}",
+                "-t",
+                "-1"
+            };
+            Benchmark.main(args);
+        } finally {
+            System.clearProperty("collect-memory");
+        }
     }
 }

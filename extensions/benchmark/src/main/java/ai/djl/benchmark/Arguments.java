@@ -10,39 +10,35 @@
  * OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package ai.djl.examples.inference.benchmark.util;
+package ai.djl.benchmark;
 
 import ai.djl.engine.Engine;
-import ai.djl.modality.Classifications;
-import ai.djl.modality.cv.Image;
-import ai.djl.modality.cv.ImageFactory;
-import ai.djl.modality.cv.output.DetectedObjects;
-import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.util.JsonUtils;
 import ai.djl.util.PairList;
 import com.google.gson.reflect.TypeToken;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 
 /** A class represents parsed command line arguments. */
 public class Arguments {
 
     private String artifactId;
+    private String modelUrls;
     private String modelName;
-    private String imageFile;
+    private String engine;
     private String outputDir;
     private Map<String, String> criteria;
     private int duration;
@@ -50,15 +46,38 @@ public class Arguments {
     private int threads;
     private int delay;
     private PairList<DataType, Shape> inputShapes;
-    private boolean help;
 
-    public Arguments(CommandLine cmd) {
+    /**
+     * Constructs a {@code Arguments} instance.
+     *
+     * @param cmd command line options
+     */
+    Arguments(CommandLine cmd) {
         artifactId = cmd.getOptionValue("artifact-id");
+        if (cmd.hasOption("model-path")) {
+            String modelPath = cmd.getOptionValue("model-path");
+            Path path = Paths.get(modelPath);
+            try {
+                modelUrls = path.toUri().toURL().toExternalForm();
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Invalid model-path: " + modelUrls, e);
+            }
+        } else if (cmd.hasOption("model-url")) {
+            modelUrls = cmd.getOptionValue("model-url");
+        }
+        if (modelUrls != null) {
+            artifactId = "ai.djl.localmodelzoo:";
+        }
+
         modelName = cmd.getOptionValue("model-name");
         outputDir = cmd.getOptionValue("output-dir");
-        imageFile = cmd.getOptionValue("image");
-        help = cmd.hasOption("help");
         inputShapes = new PairList<>();
+
+        if (cmd.hasOption("engine")) {
+            engine = cmd.getOptionValue("engine");
+        } else {
+            engine = Engine.getInstance().getEngineName();
+        }
 
         if (cmd.hasOption("duration")) {
             duration = Integer.parseInt(cmd.getOptionValue("duration"));
@@ -82,11 +101,12 @@ public class Arguments {
         if (cmd.hasOption("delay")) {
             delay = Integer.parseInt(cmd.getOptionValue("delay"));
         }
-        if (cmd.hasOption("input-shapes")) {
-            String shape = cmd.getOptionValue("input-shapes");
+
+        String shape = cmd.getOptionValue("input-shapes");
+        if (shape != null) {
             if (shape.contains("(")) {
                 Pattern pattern =
-                        Pattern.compile("\\((\\s*(\\d+)([,\\s]+\\d+)*\\s*)\\)([sfduislbS]?)");
+                        Pattern.compile("\\((\\s*(\\d+)([,\\s]+\\d+)*\\s*)\\)([sdubilBfS]?)");
                 Matcher matcher = pattern.matcher(shape);
                 while (matcher.find()) {
                     String[] tokens = matcher.group(1).split(",");
@@ -135,37 +155,55 @@ public class Arguments {
         }
     }
 
-    public static Options getOptions() {
+    static Options getOptions() {
         Options options = new Options();
         options.addOption(
                 Option.builder("h").longOpt("help").hasArg(false).desc("Print this help.").build());
-        options.addOption(
+        OptionGroup artifactGroup = new OptionGroup();
+        artifactGroup.setRequired(true);
+        artifactGroup.addOption(
                 Option.builder("a")
                         .longOpt("artifact-id")
                         .hasArg()
                         .argName("ARTIFACT-ID")
                         .desc("Model artifact id.")
                         .build());
+        artifactGroup.addOption(
+                Option.builder("p")
+                        .longOpt("model-path")
+                        .hasArg()
+                        .argName("MODEL-PATH")
+                        .desc("Model directory file path.")
+                        .build());
+        artifactGroup.addOption(
+                Option.builder("u")
+                        .longOpt("model-url")
+                        .hasArg()
+                        .argName("MODEL-URL")
+                        .desc("Model archive file URL.")
+                        .build());
+        options.addOptionGroup(artifactGroup);
         options.addOption(
                 Option.builder("n")
                         .longOpt("model-name")
                         .hasArg()
                         .argName("MODEL-NAME")
-                        .desc("Model name.")
+                        .desc("Specify model file name.")
+                        .build());
+        options.addOption(
+                Option.builder("e")
+                        .longOpt("engine")
+                        .hasArg()
+                        .argName("ENGINE-NAME")
+                        .desc("Choose an Engine for the benchmark.")
                         .build());
         options.addOption(
                 Option.builder("s")
+                        .required()
                         .longOpt("input-shapes")
                         .hasArg()
                         .argName("INPUT-SHAPES")
-                        .desc("Input data shapes for non-CV model.")
-                        .build());
-        options.addOption(
-                Option.builder("i")
-                        .longOpt("image")
-                        .hasArg()
-                        .argName("IMAGE")
-                        .desc("Image file path for benchmarking CV model.")
+                        .desc("Input data shapes for the model.")
                         .build());
         options.addOption(
                 Option.builder("d")
@@ -212,101 +250,55 @@ public class Arguments {
         return options;
     }
 
-    public int getDuration() {
+    static boolean hasHelp(String[] args) {
+        List<String> list = Arrays.asList(args);
+        return list.contains("-h") || list.contains("help");
+    }
+
+    int getDuration() {
         return duration;
     }
 
-    public String getModelName() {
+    String getEngine() {
+        return engine;
+    }
+
+    String getModelUrls() {
+        return modelUrls;
+    }
+
+    String getModelName() {
         return modelName;
     }
 
-    public String getArtifactId() {
-        if (System.getProperty("ai.djl.repository.zoo.location") != null) {
-            return "ai.djl.localmodelzoo:";
-        }
-
-        if (artifactId != null) {
-            return artifactId;
-        }
-
-        switch (Engine.getInstance().getEngineName()) {
-            case "PyTorch":
-                return "ai.djl.pytorch:resnet";
-            case "TensorFlow":
-                return "ai.djl.tensorflow:resnet";
-            case "MXNet":
-            default:
-                return "ai.djl.mxnet:resnet";
-        }
+    String getArtifactId() {
+        return artifactId;
     }
 
-    public Path getImageFile() throws FileNotFoundException {
-        if (imageFile == null) {
-            Path path = Paths.get("src/test/resources/kitten.jpg");
-            if (Files.notExists(path)) {
-                throw new FileNotFoundException("Missing --image parameter.");
-            }
-            return path;
-        }
-        Path path = Paths.get(imageFile);
-        if (Files.notExists(path)) {
-            throw new FileNotFoundException("image file not found: " + imageFile);
-        }
-        return path;
-    }
-
-    public int getIteration() {
+    int getIteration() {
         return iteration;
     }
 
-    public int getThreads() {
+    int getThreads() {
         return threads;
     }
 
-    public String getOutputDir() {
+    String getOutputDir() {
         if (outputDir == null) {
             outputDir = "build";
         }
         return outputDir;
     }
 
-    public Map<String, String> getCriteria() {
+    Map<String, String> getCriteria() {
         return criteria;
     }
 
-    public Class<?> getInputClass() {
-        if (inputShapes.isEmpty()) {
-            return Image.class;
-        }
-        return NDList.class;
-    }
-
-    public Class<?> getOutputClass() {
-        if (inputShapes.isEmpty()) {
-            if (artifactId != null && artifactId.contains("ssd")) {
-                return DetectedObjects.class;
-            }
-            return Classifications.class;
-        }
-        return NDList.class;
-    }
-
-    public Object getInputData() throws IOException {
-        if (inputShapes.isEmpty()) {
-            return ImageFactory.getInstance().fromFile(getImageFile());
-        }
-        return null;
-    }
-
-    public int getDelay() {
+    int getDelay() {
         return delay;
     }
 
-    public PairList<DataType, Shape> getInputShapes() {
+    PairList<DataType, Shape> getInputShapes() {
         return inputShapes;
-    }
-
-    public boolean hasHelp() {
-        return help;
     }
 }

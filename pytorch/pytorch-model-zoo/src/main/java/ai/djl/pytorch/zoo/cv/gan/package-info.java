@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
  * with the License. A copy of the License is located at
@@ -12,7 +12,7 @@
  */
 
 /**
- * Contains utilities used for the inference benchmarking examples within the package {@link
- * ai.djl.examples.inference.benchmark}.
+ * Contains classes for the {@link ai.djl.Application.CV#GAN} models in the {@link
+ * ai.djl.pytorch.zoo.PtModelZoo}.
  */
-package ai.djl.examples.inference.benchmark.util;
+package ai.djl.pytorch.zoo.cv.gan;
