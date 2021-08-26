@@ -208,18 +208,9 @@ public class Metadata {
      *
      * @param application {@link Application}
      */
-    public void setApplication(Application application) {
+    public final void setApplication(Application application) {
         this.applicationClass = application;
         this.application = application.getPath();
-    }
-
-    /**
-     * Returns the {@link Application} name.
-     *
-     * @return the {@link Application} name
-     */
-    public String getApplicationName() {
-        return application;
     }
 
     /**
@@ -325,11 +316,14 @@ public class Metadata {
      * Restores artifacts state.
      *
      * <p>This call is required after the metadata is restored back from JSON.
+     *
+     * @param arguments the override arguments
      */
-    public final void init() {
+    public final void init(Map<String, String> arguments) {
         if (artifacts != null) {
             for (Artifact artifact : artifacts) {
                 artifact.setMetadata(this);
+                artifact.getArguments().putAll(arguments);
             }
         }
     }
@@ -341,6 +335,7 @@ public class Metadata {
         public MatchAllMetadata() {
             groupId = DefaultModelZoo.GROUP_ID;
             artifacts = Collections.emptyList();
+            setApplication(Application.UNDEFINED);
         }
 
         /** {@inheritDoc} */

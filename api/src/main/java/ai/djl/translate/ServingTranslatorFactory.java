@@ -24,20 +24,24 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.util.JsonSerializable;
 import ai.djl.util.JsonUtils;
+import ai.djl.util.Pair;
 import ai.djl.util.PairList;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Type;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -47,13 +51,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A {@link TranslatorFactory} that creates an generic {@link Translator}. */
-public class ServingTranslatorFactory implements TranslatorFactory<Input, Output> {
+public class ServingTranslatorFactory implements TranslatorFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(ServingTranslatorFactory.class);
 
     /** {@inheritDoc} */
     @Override
-    public Translator<Input, Output> newInstance(Model model, Map<String, ?> arguments) {
+    public Set<Pair<Type, Type>> getSupportedTypes() {
+        return Collections.singleton(new Pair<>(Input.class, Output.class));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Translator<?, ?> newInstance(
+            Class<?> input, Class<?> output, Model model, Map<String, ?> arguments) {
+        if (!isSupported(input, output)) {
+            throw new IllegalArgumentException("Unsupported input/output types.");
+        }
+
         Path modelDir = model.getModelPath();
         String className = (String) arguments.get("translator");
 
@@ -174,7 +189,11 @@ public class ServingTranslatorFactory implements TranslatorFactory<Input, Output
                 return getSsdTranslator(arguments);
             }
         }
-        return new RawTranslator();
+        String batchifier = (String) arguments.get("batchifier");
+        if (batchifier == null) {
+            return new RawTranslator(null);
+        }
+        return new RawTranslator(Batchifier.fromString(batchifier));
     }
 
     private Translator<Input, Output> getImageClassificationTranslator(Map<String, ?> arguments) {
@@ -224,14 +243,14 @@ public class ServingTranslatorFactory implements TranslatorFactory<Input, Output
         /** {@inheritDoc} */
         @Override
         public Output processOutput(TranslatorContext ctx, NDList list) throws Exception {
-            Input input = (Input) ctx.getAttachment("input");
-            Output output = new Output(input.getRequestId(), 200, "OK");
+            Output output = new Output(200, "OK");
             Object obj = translator.processOutput(ctx, list);
             if (obj instanceof JsonSerializable) {
                 output.setContent(((JsonSerializable) obj).toJson() + '\n');
             } else {
                 output.setContent(JsonUtils.GSON_PRETTY.toJson(obj) + '\n');
             }
+            output.addProperty("Content-Type", "application/json");
             return output;
         }
 
@@ -247,8 +266,12 @@ public class ServingTranslatorFactory implements TranslatorFactory<Input, Output
             if (data == null) {
                 data = input.getContent().valueAt(0);
             }
-            Image image = factory.fromInputStream(new ByteArrayInputStream(data));
-            return translator.processInput(ctx, image);
+            try {
+                Image image = factory.fromInputStream(new ByteArrayInputStream(data));
+                return translator.processInput(ctx, image);
+            } catch (IOException e) {
+                throw new TranslateException("Input is not an Image data type", e);
+            }
         }
 
         /** {@inheritDoc} */
@@ -260,16 +283,21 @@ public class ServingTranslatorFactory implements TranslatorFactory<Input, Output
 
     private static final class RawTranslator implements Translator<Input, Output> {
 
-        /** {@inheritDoc} */
-        @Override
-        public Batchifier getBatchifier() {
-            return null;
+        private Batchifier batchifier;
+
+        RawTranslator(Batchifier batchifier) {
+            this.batchifier = batchifier;
         }
 
         /** {@inheritDoc} */
         @Override
-        public NDList processInput(TranslatorContext ctx, Input input) {
-            ctx.setAttachment("input", input);
+        public Batchifier getBatchifier() {
+            return batchifier;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public NDList processInput(TranslatorContext ctx, Input input) throws TranslateException {
             PairList<String, byte[]> inputs = input.getContent();
             byte[] data = inputs.get("data");
             if (data == null) {
@@ -279,15 +307,19 @@ public class ServingTranslatorFactory implements TranslatorFactory<Input, Output
                 data = input.getContent().valueAt(0);
             }
             NDManager manager = ctx.getNDManager();
-            return NDList.decode(manager, data);
+            try {
+                return NDList.decode(manager, data);
+            } catch (IllegalArgumentException e) {
+                throw new TranslateException("Input is not a NDList data type", e);
+            }
         }
 
         /** {@inheritDoc} */
         @Override
         public Output processOutput(TranslatorContext ctx, NDList list) {
-            Input input = (Input) ctx.getAttachment("input");
-            Output output = new Output(input.getRequestId(), 200, "OK");
+            Output output = new Output(200, "OK");
             output.setContent(list.encode());
+            output.addProperty("Content-Type", "tensor/ndlist");
             return output;
         }
     }

@@ -38,7 +38,6 @@ See [How to use DJL's BOM](../../bom/README.md#how-to-use-djls-bom) for detail.
 | | [bom](../../bom/README.md) | Bill of Materials (BOM), used to manage DJL package dependencies |
 | | [basicdataset](../../basicdataset/README.md#installation) | Contains a collection of built-in datasets |
 | | [model-zoo](../../model-zoo/README.md#installation) | Contains a collection of built-in engine-agnostic models |
-| | [serving](../../serving/serving/README.md#installation) | Contains an universal model server implementation |
 | | examples (deprecated) | Contains DJL examples |
 | | repository (deprecated, use api instead) | Contain classes for DJL Repository API. The package is moved into api in newer releases |
 | | | |
@@ -73,11 +72,11 @@ See [How to use DJL's BOM](../../bom/README.md#how-to-use-djls-bom) for detail.
 | [ai.djl.tensorflow](https://search.maven.org/search?q=g:ai.djl.tensorflow) | [tensorflow-engine](../../tensorflow/tensorflow-engine/README.md#installation) | TensorFlow engine adapter |
 | | [tensorflow-api](../../tensorflow/tensorflow-api/README.md#installation) | A redistribution of tensorFlow core java API 2.x |
 | | [tensorflow-model-zoo](../../tensorflow/tensorflow-model-zoo/README.md#installation) | Contains state of the art TensorFlow saved bundle models |
-| | [tensorflow-native-auto](../../tensorflow/README.md#automatic-recommended) | A placeholder package to automatically download native libraries for your platform |
-| | [tensorflow-native-cpu(osx-x86_64)](../../tensorflow/README.md#macos) | Contains TensorFlow native library for macOS |
-| | [tensorflow-native-cpu(linux-x86_64)](../../tensorflow/README.md#linux-cpu) | Contains TensorFlow native library for Linux |
-| | [tensorflow-native-cpu(win-x86_64)](../../tensorflow/README.md#windows-cpu) | Contains TensorFlow native library for Windows |
-| | [tensorflow-native-cu110(linux-x86_84)](../../tensorflow/README.md#linux-gpu) | Contains TensorFlow native library for Linux with CUDA 11.0 |
+| | [tensorflow-native-auto](../../tensorflow/tensorflow-engine/README.md#automatic-recommended) | A placeholder package to automatically download native libraries for your platform |
+| | [tensorflow-native-cpu(osx-x86_64)](../../tensorflow/tensorflow-engine/README.md#macos) | Contains TensorFlow native library for macOS |
+| | [tensorflow-native-cpu(linux-x86_64)](../../tensorflow/tensorflow-engine/README.md#linux-cpu) | Contains TensorFlow native library for Linux |
+| | [tensorflow-native-cpu(win-x86_64)](../../tensorflow/tensorflow-engine/README.md#windows-cpu) | Contains TensorFlow native library for Windows |
+| | [tensorflow-native-cu110(linux-x86_84)](../../tensorflow/tensorflow-engine/README.md#linux-gpu) | Contains TensorFlow native library for Linux with CUDA 11.0 |
 | | tensorflow-native-cu101(linux-x86_84) (deprecated) | Contains TensorFlow native library <= 2.3.0 for Linux with CUDA 10.1 |
 | | | |
 | [ai.djl.paddlepaddle](https://search.maven.org/search?q=g:ai.djl.paddlepaddle) | [paddlepaddle-engine](../../paddlepaddle/paddlepaddle-engine/README.md#installation) | PaddlePaddle engine adapter |
@@ -86,6 +85,8 @@ See [How to use DJL's BOM](../../bom/README.md#how-to-use-djls-bom) for detail.
 | | [paddlepaddle-native-cpu(osx-x86_64)](../../paddlepaddle/paddlepaddle-engine/README.md#macos) | Contains PaddlePaddle native library for macOS |
 | | [paddlepaddle-native-cpu(linux-x86_64)](../../paddlepaddle/paddlepaddle-engine/README.md#linux) | Contains PaddlePaddle native library for Linux |
 | | [paddlepaddle-native-cpu(win-x86_64)](../../paddlepaddle/paddlepaddle-engine/README.md#windows) | Contains PaddlePaddle native library for Windows |
+| | [paddlepaddle-native-cu102(linux-x86_64)](../../paddlepaddle/paddlepaddle-engine/README.md#Linux-GPU) | Contains PaddlePaddle native library for Linux with CUDA 10.2 |
+| | [paddlepaddle-native-cu101(linux-x86_64)](../../paddlepaddle/paddlepaddle-engine/README.md#Linux-GPU) | Contains PaddlePaddle native library for Linux with CUDA 10.1 |
 | | | |
 | [ai.djl.onnxruntime](https://search.maven.org/search?q=g:ai.djl.onnxruntime) | [onnxruntime-engine](../../onnxruntime/onnxruntime-engine/README.md#installation) | ONNX Runtime engine adapter |
 | | onnxruntime-api(deprecated) | Please use com.microsoft.onnxruntime:onnxruntime instead |

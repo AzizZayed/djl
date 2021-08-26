@@ -12,7 +12,9 @@
  */
 package ai.djl.benchmark;
 
+import ai.djl.Device;
 import ai.djl.ModelException;
+import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.metric.Metrics;
 import ai.djl.repository.zoo.ZooModel;
@@ -21,9 +23,13 @@ import ai.djl.translate.TranslateException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A class runs single threaded benchmark. */
 public final class Benchmark extends AbstractBenchmark {
+
+    private static final Logger logger = LoggerFactory.getLogger(Benchmark.class);
 
     /**
      * Main entry point.
@@ -31,33 +37,49 @@ public final class Benchmark extends AbstractBenchmark {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        List<String> list = Arrays.asList(args);
-        boolean multithreading = list.contains("-t") || list.contains("--threads");
-        configEngines(multithreading);
-        boolean success;
-        if (multithreading) {
-            success = new MultithreadedBenchmark().runBenchmark(args);
-        } else {
-            success = new Benchmark().runBenchmark(args);
+        String arch = System.getProperty("os.arch");
+        if (!"x86_64".equals(arch) && !"amd64".equals(arch)) {
+            logger.warn("{} is not supported.", arch);
+            return;
         }
-        System.exit(success ? 0 : -1); // NOPMD
+        List<String> list = Arrays.asList(args);
+        boolean success;
+        if (!list.isEmpty() && "ndlist-gen".equals(list.get(0))) {
+            success = NDListGenerator.generate(Arrays.copyOfRange(args, 1, args.length));
+        } else {
+            boolean multithreading = list.contains("-t") || list.contains("--threads");
+            configEngines(multithreading);
+            if (multithreading) {
+                success = new MultithreadedBenchmark().runBenchmark(args);
+            } else {
+                success = new Benchmark().runBenchmark(args);
+            }
+        }
+        if (!success) {
+            System.exit(-1); // NOPMD
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public float[] predict(Arguments arguments, Metrics metrics, int iteration)
             throws IOException, ModelException, TranslateException {
-        try (ZooModel<Void, float[]> model = loadModel(arguments, metrics)) {
+        Device device = Engine.getEngine(arguments.getEngine()).defaultDevice();
+        try (ZooModel<Void, float[]> model = loadModel(arguments, metrics, device)) {
             float[] predictResult = null;
-            try (Predictor<Void, float[]> predictor = model.newPredictor()) {
-                predictor.setMetrics(metrics); // Let predictor collect metrics
 
+            try (Predictor<Void, float[]> predictor = model.newPredictor()) {
+                predictor.predict(null); // warmup
+
+                predictor.setMetrics(metrics); // Let predictor collect metrics
+                metrics.addMetric("start", System.currentTimeMillis(), "mills");
                 for (int i = 0; i < iteration; ++i) {
                     predictResult = predictor.predict(null);
 
                     progressBar.update(i);
                     MemoryTrainingListener.collectMemoryInfo(metrics);
                 }
+                metrics.addMetric("end", System.currentTimeMillis(), "mills");
             }
             return predictResult;
         }

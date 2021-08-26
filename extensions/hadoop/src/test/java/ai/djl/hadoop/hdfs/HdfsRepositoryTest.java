@@ -64,7 +64,8 @@ public class HdfsRepositoryTest {
 
         Configuration config = new Configuration();
         setFilePermission(config);
-        miniDfs = new MiniDFSCluster(config, 1, true, null);
+        MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(config);
+        miniDfs = builder.numDataNodes(1).format(true).build();
         miniDfs.waitClusterUp();
         FileSystem fs = miniDfs.getFileSystem();
         fs.copyFromLocalFile(new Path(zipFile.toString()), new Path("/mlp.zip"));
@@ -86,7 +87,7 @@ public class HdfsRepositoryTest {
         List<MRL> list = repo.getResources();
         Assert.assertFalse(list.isEmpty());
 
-        Artifact artifact = repo.resolve(list.get(0), "1.0", null);
+        Artifact artifact = repo.resolve(list.get(0), null);
         repo.prepare(artifact);
     }
 
@@ -97,7 +98,7 @@ public class HdfsRepositoryTest {
         List<MRL> list = repo.getResources();
         Assert.assertFalse(list.isEmpty());
 
-        Artifact artifact = repo.resolve(list.get(0), "1.0", null);
+        Artifact artifact = repo.resolve(list.get(0), null);
         repo.prepare(artifact);
 
         Assert.assertTrue(repo.isRemote());
@@ -118,8 +119,8 @@ public class HdfsRepositoryTest {
         List<MRL> list = repo.getResources();
         Assert.assertTrue(list.isEmpty());
 
-        MRL mrl = MRL.model(Application.UNDEFINED, "ai.djl.localmodelzoo", "mlp");
-        Artifact artifact = repo.resolve(mrl, "0.0.1", null);
+        MRL mrl = repo.model(Application.UNDEFINED, "ai.djl.localmodelzoo", "mlp");
+        Artifact artifact = repo.resolve(mrl, null);
         Assert.assertNull(artifact);
     }
 

@@ -1,7 +1,66 @@
 # Benchmark your DL model
 
-DJL offers a comprehensive script to benchmark the model on all different
-platforms for single-thread/multi-thread inference performance.This document will guide you how to run benchmark with DJL.
+dll-bench is a command line tool that makes it easy for you to benchmark the model on different
+platforms.
+
+With djl-bench, you can easily compare your model's behavior in different use cases, such as:
+
+- single-threaded vs. multi-threaded
+- single input vs. batched inputs
+- CPU vs. GPU or other hardware accelerator
+- Single GPU vs. multiple GPUs
+- default engine options vs. customized engine configuration
+- running with different engines
+- running with different version of the engine
+
+djl-bench currently support benchmark the following type of models:
+
+- PyTorch TorchScript model
+- TensorFlow SavedModel bundle
+- Apache MXNet model
+- ONNX model
+- PaddlePaddle model
+- TFLite model
+- Neo DLR (TVM) model
+- XGBoost model
+
+You can build djl-bench from source if you need to benchmark fastText/BlazingText/Sentencepiece models.
+
+## Installation
+
+For macOS (Working in progress)
+
+```
+brew install djl-bench
+```
+
+For Ubuntu
+
+- Install using snap
+
+```
+sudo snap install djlbench --classic
+sudo snap alias djlbench djl-bench
+```
+
+- Or download .deb package from S3
+
+```
+curl -O https://publish.djl.ai/djl-bench/0.12.0/djl-bench_0.12.0-1_all.deb
+sudo dpkg -i djl-bench_0.12.0-1_all.deb
+```
+
+For Windows
+
+We are considering to create a `chocolatey` package for Windows. For the time being, you can
+download djl-bench zip file from [here](https://publish.djl.ai/djl-bench/0.12.0/benchmark-0.12.0.zip).
+
+Or you can run benchmark using gradle:
+```
+cd djl
+
+gradlew benchmark --args="--help"
+```
 
 ## Prerequisite
 Please ensure Java 8+ is installed and you are using an OS that DJL supported with.
@@ -10,8 +69,8 @@ After that, you need to clone the djl project and `cd` into the folder.
 
 DJL supported OS:
 
-- Ubuntu 16.04 and above
-- CentOS 7 (Amazon Linux 2) and above
+- Ubuntu 18.04 and above
+- Amazon Linux 2 and above
 - MacOS latest version
 - Windows 10 (Windows Server 2016+)
 
@@ -31,23 +90,23 @@ the 4-step instructions for your own model.
 Benchmark on a Tensorflow model from http url with all-ones NDArray input for 10 times:
 
 ```
-./gradlew benchmark --args='-e TensorFlow -u https://storage.googleapis.com/tfhub-modules/tensorflow/resnet_50/classification/1.tar.gz -c 10 -s 1,224,224,3'
+djl-bench -e TensorFlow -u https://storage.googleapis.com/tfhub-modules/tensorflow/resnet_50/classification/1.tar.gz -c 10 -s 1,224,224,3
 ```
 
 Similarly, this is for PyTorch
 
 ```
-./gradlew benchmark --args='-e PyTorch -u https://alpha-djl-demos.s3.amazonaws.com/model/djl-blockrunner/pytorch_resnet18.zip -n traced_resnet18 -c 10 -s 1,3,224,224'
+djl-bench -e PyTorch -u https://alpha-djl-demos.s3.amazonaws.com/model/djl-blockrunner/pytorch_resnet18.zip -n traced_resnet18 -c 10 -s 1,3,224,224
 ```
 
-### Benchmark from ModelZoo
+### Benchmark from ModelZoo (Only available in 0.13.0+)
 
 #### MXNet
 
 Resnet50 image classification model:
 
 ```
-./gradlew benchmark --args="-c 2 -s 1,3,224,224 -a ai.djl.mxnet:resnet -r {'layers':'50','flavor':'v2','dataset':'imagenet'}"
+djl-bench -c 2 -s 1,3,224,224 -u djl://ai.djl.mxnet/resnet/0.0.1/resnet50_v2
 ```
 
 #### PyTorch
@@ -55,7 +114,7 @@ Resnet50 image classification model:
 SSD object detection model:
 
 ```
-./gradlew benchmark --args="-e PyTorch -c 2 -s 1,3,300,300 -a ai.djl.pytorch:ssd -r {'size':'300','backbone':'resnet50'}"
+djl-bench -e PyTorch -c 2 -s 1,3,300,300 -u djl://ai.djl.pytorch/ssd/0.0.1/ssd_300_resnet50
 ```
 
 
@@ -74,29 +133,22 @@ The benchmark script located [here](https://github.com/deepjavalibrary/djl/blob/
 Just do the following:
 
 ```
-./gradlew benchmark --args="--help"
-```
-
-or Windows:
-
-```
-..\gradlew.bat benchmark --args="--help"
+djl-bench --help
 ```
 
 This will print out the possible arguments to pass in:
 
 ```
-usage: ./gradlew benchmark --args='[OPTIONS]'
- -a,--artifact-id <ARTIFACT-ID>     Model artifact id.
+usage: djl-bench [-p MODEL-PATH] -s INPUT-SHAPES [OPTIONS]
  -c,--iteration <ITERATION>         Number of total iterations (per thread).
  -d,--duration <DURATION>           Duration of the test in minutes.
  -e,--engine <ENGINE-NAME>          Choose an Engine for the benchmark.
+ -g,--gpus <NUMBER_GPUS>            Number of GPUS to run multithreading inference.
  -h,--help                          Print this help.
  -l,--delay <DELAY>                 Delay of incremental threads.
  -n,--model-name <MODEL-NAME>       Specify model file name.
  -o,--output-dir <OUTPUT-DIR>       Directory for output logs.
  -p,--model-path <MODEL-PATH>       Model directory file path.
- -r,--criteria <CRITERIA>           The criteria (json string) used for searching the model.
  -s,--input-shapes <INPUT-SHAPES>   Input data shapes for the model.
  -t,--threads <NUMBER_THREADS>      Number of inference threads.
  -u,--model-url <MODEL-URL>         Model archive file URL.
@@ -107,14 +159,14 @@ usage: ./gradlew benchmark --args='[OPTIONS]'
 By default, the above script will use MXNet as the default Engine, but you can always change that by adding the followings:
 
 ```
---args='-e TensorFlow' # TensorFlow
---args='-e PyTorch' # PyTorch
---args='-e MXNet' # Apache MXNet
---args='-e PaddlePaddle' # PaddlePaddle
---args='-e OnnxRuntime' # pytorch
---args='-e TFLite' # TFLite
---args='-e DLR' # Neo DLR
---args='-e XGBoost' # XGBoost
+-e TensorFlow # TensorFlow
+-e PyTorch # PyTorch
+-e MXNet # Apache MXNet
+-e PaddlePaddle # PaddlePaddle
+-e OnnxRuntime # pytorch
+-e TFLite # TFLite
+-e DLR # Neo DLR
+-e XGBoost # XGBoost
 ```
 
 ### Step 2: Identify the source of your model
@@ -128,7 +180,7 @@ Use `--model-url` option to load a model from a URL. The URL must point to an ar
 The following is a pytorch model
 
 ```
---args='-u https://alpha-djl-demos.s3.amazonaws.com/model/djl-blockrunner/pytorch_resnet18.zip'
+-u https://alpha-djl-demos.s3.amazonaws.com/model/djl-blockrunner/pytorch_resnet18.zip
 ```
 We would recommend to make model files in a zip for better file tracking.
 
@@ -139,24 +191,24 @@ Use `--model-path` option to load model from a local directory or an archive fil
 Mac/Linux
 
 ```
---args='-p /home/ubuntu/models/pytorch_resnet18'
+-p /home/ubuntu/models/pytorch_resnet18
 or
---args='-p /home/ubuntu/models/pytorch_resnet18.zip'
+-p /home/ubuntu/models/pytorch_resnet18.zip
 ```
 
 Windows
 
 ```
---args='-p C:\models\pytorch_resnet18'
+-p C:\models\pytorch_resnet18
 or
---args='-p C:\models\pytorch_resnet18.zip'
+-p C:\models\pytorch_resnet18.zip
 ```
 
 If the model file name is different from the parent folder name (or the archive file name), you need
 to specify `--model-name` in the `--args`:
 
 ```
---args='-n traced_resnet18'
+-n traced_resnet18
 ```
 
 ### Step 3: Define how many runs you would like to make
@@ -236,7 +288,7 @@ If you would like to make sure DJL is stable in the long run, you can do that.
 You can also keep monitoring the DJL memory usages by enable the following flag:
 
 ```
--Dcollect-memory=true
+export BENCHMARK_OPTS="-Dcollect-memory=true"
 ```
 
 The memory report will be made available in `build/memory.log`.

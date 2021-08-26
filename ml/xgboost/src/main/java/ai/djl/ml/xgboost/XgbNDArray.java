@@ -20,7 +20,6 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import ml.dmlc.xgboost4j.java.JniUtils;
@@ -29,6 +28,7 @@ import ml.dmlc.xgboost4j.java.JniUtils;
 public class XgbNDArray implements NDArrayAdapter {
 
     private AtomicLong handle;
+    private String name;
     private String uid;
     private ByteBuffer data;
     private XgbNDManager manager;
@@ -63,6 +63,18 @@ public class XgbNDArray implements NDArrayAdapter {
     @Override
     public XgbNDManager getManager() {
         return manager;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setName(String name) {
+        this.name = name;
     }
 
     /** {@inheritDoc} */
@@ -134,14 +146,7 @@ public class XgbNDArray implements NDArrayAdapter {
         if (isClosed) {
             return "This array is already closed";
         }
-        return "ND: "
-                + getShape()
-                + ' '
-                + getDevice()
-                + ' '
-                + getDataType()
-                + '\n'
-                + Arrays.toString(toArray());
+        return toDebugString();
     }
 
     /** {@inheritDoc} */

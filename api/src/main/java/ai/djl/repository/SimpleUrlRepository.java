@@ -15,6 +15,7 @@ package ai.djl.repository;
 import ai.djl.Application;
 import ai.djl.repository.zoo.DefaultModelZoo;
 import ai.djl.util.Progress;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -36,19 +37,22 @@ public class SimpleUrlRepository extends AbstractRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(SimpleUrlRepository.class);
 
-    private String name;
-    private URI uri;
     private String artifactId;
     private String modelName;
 
     private Metadata metadata;
     private boolean resolved;
 
-    SimpleUrlRepository(String name, URI uri, String artifactId, String modelName) {
-        this.name = name;
-        this.uri = uri;
-        this.artifactId = artifactId;
-        this.modelName = modelName;
+    SimpleUrlRepository(String name, URI uri, String fileName) {
+        super(name, uri);
+        modelName = arguments.get("model_name");
+        artifactId = arguments.get("artifact_id");
+        if (artifactId == null) {
+            artifactId = fileName;
+        }
+        if (modelName == null) {
+            modelName = artifactId;
+        }
     }
 
     /** {@inheritDoc} */
@@ -59,26 +63,13 @@ public class SimpleUrlRepository extends AbstractRepository {
 
     /** {@inheritDoc} */
     @Override
-    public String getName() {
-        return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public URI getBaseUri() {
-        return uri;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Metadata locate(MRL mrl) throws IOException {
         return getMetadata();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Artifact resolve(MRL mrl, String version, Map<String, String> filter)
-            throws IOException {
+    public Artifact resolve(MRL mrl, Map<String, String> filter) throws IOException {
         List<Artifact> artifacts = locate(mrl).getArtifacts();
         if (artifacts.isEmpty()) {
             return null;
@@ -92,7 +83,7 @@ public class SimpleUrlRepository extends AbstractRepository {
         try {
             Metadata m = getMetadata();
             if (m != null && !m.getArtifacts().isEmpty()) {
-                MRL mrl = MRL.undefined(m.getGroupId(), m.getArtifactId());
+                MRL mrl = MRL.undefined(this, m.getGroupId(), m.getArtifactId());
                 return Collections.singletonList(mrl);
             }
         } catch (IOException e) {
@@ -106,8 +97,8 @@ public class SimpleUrlRepository extends AbstractRepository {
     protected void download(Path tmp, URI baseUri, Artifact.Item item, Progress progress)
             throws IOException {
         logger.debug("Downloading artifact: {} ...", uri);
-        try (InputStream is = uri.toURL().openStream()) {
-            save(is, tmp, baseUri, item, progress);
+        try (InputStream is = new BufferedInputStream(uri.toURL().openStream())) {
+            save(is, tmp, item, progress);
         }
     }
 
@@ -117,6 +108,8 @@ public class SimpleUrlRepository extends AbstractRepository {
         }
 
         Artifact artifact = new Artifact();
+        artifact.setName(modelName);
+        artifact.getArguments().putAll(arguments);
         Map<String, Artifact.Item> files = new ConcurrentHashMap<>();
         Artifact.Item item = new Artifact.Item();
         item.setUri(uri.getPath());
@@ -125,15 +118,12 @@ public class SimpleUrlRepository extends AbstractRepository {
         item.setSize(getContentLength());
         files.put(artifactId, item);
         artifact.setFiles(files);
-        artifact.setName(modelName);
 
         metadata = new Metadata.MatchAllMetadata();
-        metadata.setApplication(Application.UNDEFINED);
-        metadata.setGroupId(DefaultModelZoo.GROUP_ID);
         metadata.setArtifactId(artifactId);
         metadata.setArtifacts(Collections.singletonList(artifact));
         String hash = md5hash(uri.toString());
-        MRL mrl = MRL.model(Application.UNDEFINED, DefaultModelZoo.GROUP_ID, hash);
+        MRL mrl = model(Application.UNDEFINED, DefaultModelZoo.GROUP_ID, hash);
         metadata.setRepositoryUri(mrl.toURI());
         return metadata;
     }

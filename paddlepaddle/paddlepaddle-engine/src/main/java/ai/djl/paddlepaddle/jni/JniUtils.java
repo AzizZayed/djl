@@ -37,7 +37,7 @@ public final class JniUtils {
         long handle =
                 PaddleLibrary.LIB.paddleCreateTensor(
                         data, data.remaining(), intShape, PpDataType.toPaddlePaddle(dtype));
-        return new PpNDArray(manager, handle);
+        return new PpNDArray(manager, data, handle);
     }
 
     public static DataType getDTypeFromNd(PpNDArray array) {
@@ -63,17 +63,41 @@ public final class JniUtils {
         return PaddleLibrary.LIB.getTensorName(array.getHandle());
     }
 
+    public static void setNdLoD(PpNDArray array, long[][] lod) {
+        PaddleLibrary.LIB.setTensorLoD(array.getHandle(), lod);
+    }
+
+    public static long[][] getNdLoD(PpNDArray array) {
+        return PaddleLibrary.LIB.getTensorLoD(array.getHandle());
+    }
+
     public static void deleteNd(Long handle) {
         PaddleLibrary.LIB.deleteTensor(handle);
     }
 
     public static long createConfig(String modelDir, String paramDir, Device device) {
-        int deviceId = device == Device.cpu() ? -1 : device.getDeviceId();
+        int deviceId = device.getDeviceId();
         return PaddleLibrary.LIB.createAnalysisConfig(modelDir, paramDir, deviceId);
     }
 
     public static void enableMKLDNN(long config) {
         PaddleLibrary.LIB.analysisConfigEnableMKLDNN(config);
+    }
+
+    public static void removePass(long config, String pass) {
+        PaddleLibrary.LIB.analysisConfigRemovePass(config, pass);
+    }
+
+    public static void disableGLog(long config) {
+        PaddleLibrary.LIB.analysisConfigDisableGLog(config);
+    }
+
+    public static void cpuMathLibraryNumThreads(long config, int thread) {
+        PaddleLibrary.LIB.analysisConfigCMLNumThreads(config, thread);
+    }
+
+    public static void switchIrOptim(long config, boolean condition) {
+        PaddleLibrary.LIB.analysisConfigSwitchIrOptim(config, condition);
     }
 
     public static void useFeedFetchOp(long config) {
@@ -107,7 +131,7 @@ public final class JniUtils {
         PpNDManager manager = (PpNDManager) inputs[0].getManager();
         PpNDArray[] arrays = new PpNDArray[outputs.length];
         for (int i = 0; i < outputs.length; i++) {
-            arrays[i] = new PpNDArray(manager, outputs[i]);
+            arrays[i] = new PpNDArray(manager, null, outputs[i]);
         }
         return arrays;
     }

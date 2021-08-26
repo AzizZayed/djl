@@ -12,7 +12,7 @@ memory consumption compare to Python.
 DJL `Predictor` is not designed to be thread-safe (although some implementation is),
 we recommend creating a new [Predictor](https://javadoc.io/doc/ai.djl/api/latest/ai/djl/inference/Predictor.html) for each thread.
 
-For a reference implementation, see [Multi-threaded Benchmark](https://github.com/deepjavalibrary/djl/blob/master/examples/src/main/java/ai/djl/examples/inference/benchmark/MultithreadedBenchmark.java).
+For a reference implementation, see [Multi-threaded Benchmark](https://github.com/deepjavalibrary/djl/blob/master/extensions/benchmark/src/main/java/ai/djl/benchmark/MultithreadedBenchmark.java).
 
 you need to set corresponding configuration based on the engine you want to use.
 
@@ -33,6 +33,8 @@ To get the best throughput, you may also need to set 'OMP_NUM_THREADS' environme
 ```
 export OMP_NUM_THREADS=1
 ```
+
+Note that MxNet uses thread_local storage: Every thread that performs inference will allocate memory. In order to avoid memory leaks it is necessary to call MxNet from a fixed size thread pool. See https://github.com/apache/incubator-mxnet/issues/16431#issuecomment-562052116.
 
 ### PyTorch
 
@@ -97,7 +99,7 @@ This should only be disabled when you do not have the time to "warmup" a model w
 #### Multithreading Inference
 You can follow the same steps as other engines for running multithreading inference using TensorFlow engine.
 It's recommended to use one `Predictor` for each thread and avoid using a new `Predictor` for each inference call.
-You can refer to our [Multithreading Benchmark](https://github.com/deepjavalibrary/djl/blob/master/examples/src/main/java/ai/djl/examples/inference/benchmark/MultithreadedBenchmark.java) as an example, 
+You can refer to our [Multithreading Benchmark](https://github.com/deepjavalibrary/djl/blob/master/extensions/benchmark/src/main/java/ai/djl/benchmark/MultithreadedBenchmark.java) as an example,
 here is how to run it using TensorFlow engine.
 
 ```bash

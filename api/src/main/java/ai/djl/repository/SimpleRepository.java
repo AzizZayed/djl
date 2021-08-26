@@ -16,6 +16,7 @@ import ai.djl.Application;
 import ai.djl.repository.Artifact.Item;
 import ai.djl.repository.zoo.DefaultModelZoo;
 import ai.djl.util.Progress;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,7 +40,6 @@ public class SimpleRepository extends AbstractRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(SimpleRepository.class);
 
-    private String name;
     private Path path;
     private String artifactId;
     private String modelName;
@@ -54,28 +54,31 @@ public class SimpleRepository extends AbstractRepository {
      * <p>Use {@link Repository#newInstance(String, String)}.
      *
      * @param name the name of the repository
+     * @param uri the base URI of the repository
      * @param path the path to the repository
-     * @param artifactId the artifatId of the repository
-     * @param modelName the modelName of the repository
      */
-    protected SimpleRepository(String name, Path path, String artifactId, String modelName) {
-        this.name = name;
+    protected SimpleRepository(String name, URI uri, Path path) {
+        super(name, uri);
         this.path = path;
-        this.artifactId = artifactId;
-        this.modelName = modelName;
         isRemote = FilenameUtils.isArchiveFile(path.toString());
+        modelName = arguments.get("model_name");
+        artifactId = arguments.get("artifact_id");
+        if (artifactId == null) {
+            if (isRemote) {
+                artifactId = FilenameUtils.getNamePart(path.toFile().getName());
+            } else {
+                artifactId = path.toFile().getName();
+            }
+        }
+        if (modelName == null) {
+            modelName = artifactId;
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isRemote() {
         return isRemote;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String getName() {
-        return name;
     }
 
     /** {@inheritDoc} */
@@ -92,8 +95,7 @@ public class SimpleRepository extends AbstractRepository {
 
     /** {@inheritDoc} */
     @Override
-    public Artifact resolve(MRL mrl, String version, Map<String, String> filter)
-            throws IOException {
+    public Artifact resolve(MRL mrl, Map<String, String> filter) throws IOException {
         List<Artifact> artifacts = locate(mrl).getArtifacts();
         if (artifacts.isEmpty()) {
             return null;
@@ -115,8 +117,8 @@ public class SimpleRepository extends AbstractRepository {
     protected void download(Path tmp, URI baseUri, Artifact.Item item, Progress progress)
             throws IOException {
         logger.debug("Extracting artifact: {} ...", path);
-        try (InputStream is = Files.newInputStream(path)) {
-            save(is, tmp, baseUri, item, progress);
+        try (InputStream is = new BufferedInputStream(Files.newInputStream(path))) {
+            save(is, tmp, item, progress);
         }
     }
 
@@ -156,7 +158,7 @@ public class SimpleRepository extends AbstractRepository {
             return Collections.emptyList();
         }
 
-        MRL mrl = MRL.undefined(DefaultModelZoo.GROUP_ID, artifactId);
+        MRL mrl = MRL.undefined(this, DefaultModelZoo.GROUP_ID, artifactId);
         return Collections.singletonList(mrl);
     }
 
@@ -168,7 +170,6 @@ public class SimpleRepository extends AbstractRepository {
         resolved = true;
         metadata = new Metadata.MatchAllMetadata();
         metadata.setRepositoryUri(URI.create(""));
-        metadata.setApplication(Application.UNDEFINED);
         metadata.setArtifactId(artifactId);
         if (!Files.exists(path)) {
             logger.debug("Specified path doesn't exists: {}", path.toAbsolutePath());
@@ -177,6 +178,7 @@ public class SimpleRepository extends AbstractRepository {
 
         Artifact artifact = new Artifact();
         artifact.setName(modelName);
+        artifact.getArguments().putAll(arguments);
         Map<String, Item> files = new ConcurrentHashMap<>();
         if (isRemote) {
             Artifact.Item item = new Artifact.Item();
@@ -187,10 +189,9 @@ public class SimpleRepository extends AbstractRepository {
             item.setSize(Files.size(path));
             files.put(artifactId, item);
             artifact.setFiles(files);
-            artifact.setName(modelName);
 
-            String hash = md5hash(uri + "artifact_id=" + artifactId + "&model_name=" + modelName);
-            MRL mrl = MRL.model(Application.UNDEFINED, DefaultModelZoo.GROUP_ID, hash);
+            String hash = md5hash(uri);
+            MRL mrl = model(Application.UNDEFINED, DefaultModelZoo.GROUP_ID, hash);
             metadata.setRepositoryUri(mrl.toURI());
         } else {
             if (Files.isDirectory(path)) {

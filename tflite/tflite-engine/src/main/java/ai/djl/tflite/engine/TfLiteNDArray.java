@@ -18,7 +18,6 @@ import ai.djl.ndarray.NDArrayAdapter;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import ai.djl.ndarray.types.SparseFormat;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.UUID;
@@ -97,12 +96,6 @@ public class TfLiteNDArray implements NDArrayAdapter {
 
     /** {@inheritDoc} */
     @Override
-    public SparseFormat getSparseFormat() {
-        return SparseFormat.DENSE;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void attach(NDManager manager) {
         detach();
         this.manager = (TfLiteNDManager) manager;
@@ -161,8 +154,7 @@ public class TfLiteNDArray implements NDArrayAdapter {
                 return manager.create(booleanResult).reshape(shape);
             default:
                 throw new UnsupportedOperationException(
-                        "Type conversion is not supported for TFLite for data type "
-                                + dataType.toString());
+                        "Type conversion is not supported for TFLite for data type " + dataType);
         }
     }
 
@@ -196,14 +188,7 @@ public class TfLiteNDArray implements NDArrayAdapter {
         if (isClosed) {
             return "This array is already closed";
         }
-        return "ND: "
-                + getShape()
-                + ' '
-                + getDevice()
-                + ' '
-                + getDataType()
-                + '\n'
-                + Arrays.toString(toArray());
+        return toDebugString();
     }
 
     /** {@inheritDoc} */

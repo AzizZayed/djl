@@ -12,39 +12,57 @@
  */
 package ai.djl.pytorch.zoo;
 
-import ai.djl.modality.cv.zoo.ImageClassificationModelLoader;
+import ai.djl.Application.CV;
+import ai.djl.Application.NLP;
 import ai.djl.pytorch.engine.PtEngine;
-import ai.djl.pytorch.zoo.cv.gan.BigGANModelLoader;
-import ai.djl.pytorch.zoo.cv.objectdetection.PtSsdModelLoader;
-import ai.djl.pytorch.zoo.nlp.qa.BertQAModelLoader;
-import ai.djl.pytorch.zoo.nlp.sentimentanalysis.DistilBertSentimentAnalysisModelLoader;
+import ai.djl.repository.MRL;
 import ai.djl.repository.Repository;
+import ai.djl.repository.zoo.BaseModelLoader;
+import ai.djl.repository.zoo.ModelLoader;
 import ai.djl.repository.zoo.ModelZoo;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /**
  * PtModelZoo is a repository that contains all PyTorch models in {@link
  * ai.djl.pytorch.engine.PtSymbolBlock} for DJL.
  */
-public class PtModelZoo implements ModelZoo {
+public class PtModelZoo extends ModelZoo {
 
     private static final String DJL_REPO_URL = "https://mlrepo.djl.ai/";
     private static final Repository REPOSITORY = Repository.newInstance("PyTorch", DJL_REPO_URL);
-    private static final PtModelZoo ZOO = new PtModelZoo();
     public static final String GROUP_ID = "ai.djl.pytorch";
 
-    public static final ImageClassificationModelLoader RESNET =
-            new ImageClassificationModelLoader(REPOSITORY, GROUP_ID, "resnet", "0.0.1", ZOO);
-    public static final PtSsdModelLoader SSD =
-            new PtSsdModelLoader(REPOSITORY, GROUP_ID, "ssd", "0.0.1", ZOO);
+    private static final List<ModelLoader> MODEL_LOADERS = new ArrayList<>();
 
-    public static final BertQAModelLoader BERT_QA = new BertQAModelLoader(REPOSITORY);
+    static {
+        MRL resnet = REPOSITORY.model(CV.IMAGE_CLASSIFICATION, GROUP_ID, "resnet", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(resnet));
 
-    public static final DistilBertSentimentAnalysisModelLoader DB_SENTIMENT_ANALYSIS =
-            new DistilBertSentimentAnalysisModelLoader(REPOSITORY);
+        MRL ssd = REPOSITORY.model(CV.OBJECT_DETECTION, GROUP_ID, "ssd", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(ssd));
 
-    public static final BigGANModelLoader BIG_GAN = new BigGANModelLoader(REPOSITORY);
+        MRL bertQa = REPOSITORY.model(NLP.QUESTION_ANSWER, GROUP_ID, "bertqa", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(bertQa));
+
+        MRL sentimentAnalysis =
+                REPOSITORY.model(NLP.SENTIMENT_ANALYSIS, GROUP_ID, "distilbert", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(sentimentAnalysis));
+
+        MRL bigGan = REPOSITORY.model(CV.IMAGE_GENERATION, GROUP_ID, "biggan-deep", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(bigGan));
+
+        MRL cyclegan = REPOSITORY.model(CV.IMAGE_GENERATION, GROUP_ID, "cyclegan", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(cyclegan));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ModelLoader> getModelLoaders() {
+        return MODEL_LOADERS;
+    }
 
     /** {@inheritDoc} */
     @Override

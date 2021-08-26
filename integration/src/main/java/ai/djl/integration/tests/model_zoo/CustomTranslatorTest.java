@@ -194,7 +194,7 @@ public class CustomTranslatorTest {
             Input input = new Input("1");
             input.addData(buf);
             Output output = predictor.predict(input);
-            Assert.assertEquals(output.getRequestId(), "1");
+            Assert.assertEquals(output.getCode(), 200);
             String content = new String(output.getContent(), StandardCharsets.UTF_8);
             Type type = new TypeToken<List<Classification>>() {}.getType();
             List<Classification> result = JsonUtils.GSON.fromJson(content, type);
@@ -209,7 +209,7 @@ public class CustomTranslatorTest {
                         .setTypes(Input.class, Output.class)
                         .optApplication(application)
                         .optArguments(arguments)
-                        .optModelUrls(modelDir.toUri().toURL().toString())
+                        .optModelPath(modelDir)
                         .build();
 
         try (ZooModel<Input, Output> model = criteria.loadModel();
@@ -217,7 +217,7 @@ public class CustomTranslatorTest {
             Input input = new Input("1");
             input.addData("body", data);
             Output output = predictor.predict(input);
-            Assert.assertEquals(output.getRequestId(), "1");
+            Assert.assertEquals(output.getCode(), 200);
             String content = new String(output.getContent(), StandardCharsets.UTF_8);
             Type type = new TypeToken<List<Classification>>() {}.getType();
             List<Classification> result = JsonUtils.GSON.fromJson(content, type);
@@ -229,7 +229,7 @@ public class CustomTranslatorTest {
         Criteria<Input, Output> criteria =
                 Criteria.builder()
                         .setTypes(Input.class, Output.class)
-                        .optModelUrls(modelDir.toUri().toURL().toString())
+                        .optModelPath(modelDir)
                         .build();
 
         try (ZooModel<Input, Output> model = criteria.loadModel();
@@ -246,7 +246,7 @@ public class CustomTranslatorTest {
             Input input = new Input("1");
             input.addData(0, list.encode());
             Output output = predictor.predict(input);
-            Assert.assertEquals(output.getRequestId(), "1");
+            Assert.assertEquals(output.getCode(), 200);
 
             // manually post process
             list = NDList.decode(manager, output.getContent());

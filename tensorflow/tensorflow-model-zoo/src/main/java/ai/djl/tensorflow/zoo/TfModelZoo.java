@@ -13,28 +13,43 @@
 
 package ai.djl.tensorflow.zoo;
 
-import ai.djl.modality.cv.zoo.ImageClassificationModelLoader;
+import ai.djl.Application.CV;
+import ai.djl.repository.MRL;
 import ai.djl.repository.Repository;
+import ai.djl.repository.zoo.BaseModelLoader;
+import ai.djl.repository.zoo.ModelLoader;
 import ai.djl.repository.zoo.ModelZoo;
 import ai.djl.tensorflow.engine.TfEngine;
-import ai.djl.tensorflow.zoo.cv.objectdetction.TfSsdModelLoader;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /** TfModelZoo is a repository that contains the TensorFlow models for DJL. */
-public class TfModelZoo implements ModelZoo {
+public class TfModelZoo extends ModelZoo {
 
     private static final String DJL_REPO_URL = "https://mlrepo.djl.ai/";
     private static final Repository REPOSITORY = Repository.newInstance("TensorFlow", DJL_REPO_URL);
-    private static final TfModelZoo ZOO = new TfModelZoo();
     public static final String GROUP_ID = "ai.djl.tensorflow";
 
-    public static final ImageClassificationModelLoader RESNET =
-            new ImageClassificationModelLoader(REPOSITORY, GROUP_ID, "resnet", "0.0.1", ZOO);
-    public static final ImageClassificationModelLoader MOBILENET =
-            new ImageClassificationModelLoader(REPOSITORY, GROUP_ID, "mobilenet", "0.0.1", ZOO);
-    public static final TfSsdModelLoader SSD =
-            new TfSsdModelLoader(REPOSITORY, GROUP_ID, "ssd", "0.0.1", ZOO);
+    private static final List<ModelLoader> MODEL_LOADERS = new ArrayList<>();
+
+    static {
+        MRL resnet = REPOSITORY.model(CV.IMAGE_CLASSIFICATION, GROUP_ID, "resnet", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(resnet));
+
+        MRL mobilenet = REPOSITORY.model(CV.IMAGE_CLASSIFICATION, GROUP_ID, "mobilenet", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(mobilenet));
+
+        MRL ssd = REPOSITORY.model(CV.OBJECT_DETECTION, GROUP_ID, "ssd", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(ssd));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ModelLoader> getModelLoaders() {
+        return MODEL_LOADERS;
+    }
 
     /** {@inheritDoc} */
     @Override

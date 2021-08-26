@@ -16,17 +16,28 @@ import ai.djl.Application;
 import ai.djl.MalformedModelException;
 import ai.djl.repository.Artifact;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** An interface represents a collection of models. */
-public interface ModelZoo {
+public abstract class ModelZoo {
+
+    private static final Map<String, ModelZoo> MODEL_ZOO_MAP = new ConcurrentHashMap<>();
+
+    static {
+        ServiceLoader<ZooProvider> providers = ServiceLoader.load(ZooProvider.class);
+        for (ZooProvider provider : providers) {
+            ModelZoo zoo = provider.getModelZoo();
+            MODEL_ZOO_MAP.put(zoo.getGroupId(), zoo);
+        }
+    }
 
     /**
      * Returns the global unique identifier of the {@code ModelZoo}.
@@ -36,27 +47,14 @@ public interface ModelZoo {
      *
      * @return the global unique identifier of the {@code ModelZoo}
      */
-    String getGroupId();
+    public abstract String getGroupId();
 
     /**
      * Lists the available model families in the ModelZoo.
      *
      * @return the list of all available model families
      */
-    default List<ModelLoader> getModelLoaders() {
-        List<ModelLoader> list = new ArrayList<>();
-        try {
-            Field[] fields = getClass().getDeclaredFields();
-            for (Field field : fields) {
-                if (ModelLoader.class.isAssignableFrom(field.getType())) {
-                    list.add((ModelLoader) field.get(null));
-                }
-            }
-        } catch (ReflectiveOperationException e) {
-            // ignore
-        }
-        return list;
-    }
+    public abstract List<ModelLoader> getModelLoaders();
 
     /**
      * Returns the {@link ModelLoader} based on the model name.
@@ -64,7 +62,7 @@ public interface ModelZoo {
      * @param name the name of the model
      * @return the {@link ModelLoader} of the model
      */
-    default ModelLoader getModelLoader(String name) {
+    public ModelLoader getModelLoader(String name) {
         for (ModelLoader loader : getModelLoaders()) {
             if (name.equals(loader.getArtifactId())) {
                 return loader;
@@ -78,7 +76,26 @@ public interface ModelZoo {
      *
      * @return all supported engine names
      */
-    Set<String> getSupportedEngines();
+    public abstract Set<String> getSupportedEngines();
+
+    /**
+     * Returns available model zoos.
+     *
+     * @return a list of model zoo
+     */
+    public static Collection<ModelZoo> listModelZoo() {
+        return MODEL_ZOO_MAP.values();
+    }
+
+    /**
+     * Returns the {@code ModelZoo} with the {@code groupId}.
+     *
+     * @param groupId the model zoo group id to check for
+     * @return the {@code ModelZoo} with the {@code groupId}
+     */
+    public static ModelZoo getModelZoo(String groupId) {
+        return MODEL_ZOO_MAP.get(groupId);
+    }
 
     /**
      * Returns whether a model zoo with the group id is available.
@@ -86,15 +103,8 @@ public interface ModelZoo {
      * @param groupId the model zoo group id to check for
      * @return whether a model zoo with the group id is available
      */
-    static boolean hasModelZoo(String groupId) {
-        ServiceLoader<ZooProvider> providers = ServiceLoader.load(ZooProvider.class);
-        for (ZooProvider provider : providers) {
-            ModelZoo zoo = provider.getModelZoo();
-            if (zoo.getGroupId().equals(groupId)) {
-                return true;
-            }
-        }
-        return false;
+    public static boolean hasModelZoo(String groupId) {
+        return MODEL_ZOO_MAP.containsKey(groupId);
     }
 
     /**
@@ -108,7 +118,7 @@ public interface ModelZoo {
      * @throws ModelNotFoundException if no model with the specified criteria is found
      * @throws MalformedModelException if the model data is malformed
      */
-    static <I, O> ZooModel<I, O> loadModel(Criteria<I, O> criteria)
+    public static <I, O> ZooModel<I, O> loadModel(Criteria<I, O> criteria)
             throws IOException, ModelNotFoundException, MalformedModelException {
         return criteria.loadModel();
     }
@@ -120,7 +130,7 @@ public interface ModelZoo {
      * @throws IOException if failed to download to repository metadata
      * @throws ModelNotFoundException if failed to parse repository metadata
      */
-    static Map<Application, List<Artifact>> listModels()
+    public static Map<Application, List<Artifact>> listModels()
             throws IOException, ModelNotFoundException {
         return listModels(Criteria.builder().build());
     }
@@ -133,7 +143,7 @@ public interface ModelZoo {
      * @throws IOException if failed to download to repository metadata
      * @throws ModelNotFoundException if failed to parse repository metadata
      */
-    static Map<Application, List<Artifact>> listModels(Criteria<?, ?> criteria)
+    public static Map<Application, List<Artifact>> listModels(Criteria<?, ?> criteria)
             throws IOException, ModelNotFoundException {
         String artifactId = criteria.getArtifactId();
         ModelZoo modelZoo = criteria.getModelZoo();
@@ -144,12 +154,7 @@ public interface ModelZoo {
         @SuppressWarnings("PMD.UseConcurrentHashMap")
         Map<Application, List<Artifact>> models =
                 new TreeMap<>(Comparator.comparing(Application::getPath));
-        ServiceLoader<ZooProvider> providers = ServiceLoader.load(ZooProvider.class);
-        for (ZooProvider provider : providers) {
-            ModelZoo zoo = provider.getModelZoo();
-            if (zoo == null) {
-                continue;
-            }
+        for (ModelZoo zoo : listModelZoo()) {
             if (modelZoo != null) {
                 if (groupId != null && !modelZoo.getGroupId().equals(groupId)) {
                     continue;

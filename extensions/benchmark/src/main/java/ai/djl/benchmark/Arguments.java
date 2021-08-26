@@ -12,38 +12,37 @@
  */
 package ai.djl.benchmark;
 
+import ai.djl.Device;
 import ai.djl.engine.Engine;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import ai.djl.util.JsonUtils;
 import ai.djl.util.PairList;
-import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A class represents parsed command line arguments. */
 public class Arguments {
 
-    private String artifactId;
-    private String modelUrls;
+    private static final Logger logger = LoggerFactory.getLogger(Arguments.class);
+
+    private String modelUrl;
     private String modelName;
     private String engine;
     private String outputDir;
-    private Map<String, String> criteria;
     private int duration;
     private int iteration;
     private int threads;
+    private int maxGpus;
     private int delay;
     private PairList<DataType, Shape> inputShapes;
 
@@ -53,30 +52,25 @@ public class Arguments {
      * @param cmd command line options
      */
     Arguments(CommandLine cmd) {
-        artifactId = cmd.getOptionValue("artifact-id");
         if (cmd.hasOption("model-path")) {
             String modelPath = cmd.getOptionValue("model-path");
             Path path = Paths.get(modelPath);
             try {
-                modelUrls = path.toUri().toURL().toExternalForm();
+                modelUrl = path.toUri().toURL().toExternalForm();
             } catch (IOException e) {
-                throw new IllegalArgumentException("Invalid model-path: " + modelUrls, e);
+                throw new IllegalArgumentException("Invalid model-path: " + modelPath, e);
             }
         } else if (cmd.hasOption("model-url")) {
-            modelUrls = cmd.getOptionValue("model-url");
-        }
-        if (modelUrls != null) {
-            artifactId = "ai.djl.localmodelzoo:";
+            modelUrl = cmd.getOptionValue("model-url");
         }
 
         modelName = cmd.getOptionValue("model-name");
         outputDir = cmd.getOptionValue("output-dir");
-        inputShapes = new PairList<>();
 
         if (cmd.hasOption("engine")) {
             engine = cmd.getOptionValue("engine");
         } else {
-            engine = Engine.getInstance().getEngineName();
+            engine = Engine.getDefaultEngineName();
         }
 
         if (cmd.hasOption("duration")) {
@@ -86,73 +80,45 @@ public class Arguments {
         if (cmd.hasOption("iteration")) {
             iteration = Integer.parseInt(cmd.getOptionValue("iteration"));
         }
-        if (cmd.hasOption("threads")) {
-            threads = Integer.parseInt(cmd.getOptionValue("threads"));
-            if (threads <= 0) {
-                threads = Runtime.getRuntime().availableProcessors() * 2 - 1;
+        if (cmd.hasOption("gpus")) {
+            maxGpus = Integer.parseInt(cmd.getOptionValue("gpus"));
+            if (maxGpus < 0) {
+                maxGpus = Integer.MAX_VALUE;
             }
         } else {
-            threads = Runtime.getRuntime().availableProcessors() * 2 - 1;
+            maxGpus = Integer.MAX_VALUE;
         }
-        if (cmd.hasOption("criteria")) {
-            Type type = new TypeToken<Map<String, String>>() {}.getType();
-            criteria = JsonUtils.GSON.fromJson(cmd.getOptionValue("criteria"), type);
+        if (cmd.hasOption("threads")) {
+            threads = Integer.parseInt(cmd.getOptionValue("threads"));
+            Engine eng = Engine.getEngine(engine);
+            Device[] devices = eng.getDevices(maxGpus);
+            String deviceType = devices[0].getDeviceType();
+            if (Device.Type.GPU.equals(deviceType)) {
+                // one thread per GPU
+                if (threads <= 0) {
+                    threads = devices.length;
+                } else if (threads < devices.length) {
+                    threads = devices.length;
+                    logger.warn(
+                            "Number of threads is less than GPU count, adjust to: {}",
+                            devices.length);
+                } else if ("MXNet".equals(engine) && threads > devices.length) {
+                    threads = devices.length;
+                    logger.warn("MXNet inference can only have one worker per GPU.");
+                } else if (threads % devices.length != 0) {
+                    threads = threads / devices.length * devices.length;
+                    logger.warn("threads should be multiple of GPU count, change to: {}", threads);
+                }
+            } else if (threads <= 0) {
+                threads = Runtime.getRuntime().availableProcessors();
+            }
         }
         if (cmd.hasOption("delay")) {
             delay = Integer.parseInt(cmd.getOptionValue("delay"));
         }
 
         String shape = cmd.getOptionValue("input-shapes");
-        if (shape != null) {
-            if (shape.contains("(")) {
-                Pattern pattern =
-                        Pattern.compile("\\((\\s*(\\d+)([,\\s]+\\d+)*\\s*)\\)([sdubilBfS]?)");
-                Matcher matcher = pattern.matcher(shape);
-                while (matcher.find()) {
-                    String[] tokens = matcher.group(1).split(",");
-                    long[] array = Arrays.stream(tokens).mapToLong(Long::parseLong).toArray();
-                    DataType dataType;
-                    String dataTypeStr = matcher.group(4);
-                    if (dataTypeStr == null || dataTypeStr.isEmpty()) {
-                        dataType = DataType.FLOAT32;
-                    } else {
-                        switch (dataTypeStr) {
-                            case "s":
-                                dataType = DataType.FLOAT16;
-                                break;
-                            case "d":
-                                dataType = DataType.FLOAT64;
-                                break;
-                            case "u":
-                                dataType = DataType.UINT8;
-                                break;
-                            case "b":
-                                dataType = DataType.INT8;
-                                break;
-                            case "i":
-                                dataType = DataType.INT32;
-                                break;
-                            case "l":
-                                dataType = DataType.INT64;
-                                break;
-                            case "B":
-                                dataType = DataType.BOOLEAN;
-                                break;
-                            case "f":
-                                dataType = DataType.FLOAT32;
-                                break;
-                            default:
-                                throw new IllegalArgumentException("Invalid input-shape: " + shape);
-                        }
-                    }
-                    inputShapes.add(dataType, new Shape(array));
-                }
-            } else {
-                String[] tokens = shape.split(",");
-                long[] shapes = Arrays.stream(tokens).mapToLong(Long::parseLong).toArray();
-                inputShapes.add(DataType.FLOAT32, new Shape(shapes));
-            }
-        }
+        inputShapes = NDListGenerator.parseShape(shape);
     }
 
     static Options getOptions() {
@@ -161,13 +127,6 @@ public class Arguments {
                 Option.builder("h").longOpt("help").hasArg(false).desc("Print this help.").build());
         OptionGroup artifactGroup = new OptionGroup();
         artifactGroup.setRequired(true);
-        artifactGroup.addOption(
-                Option.builder("a")
-                        .longOpt("artifact-id")
-                        .hasArg()
-                        .argName("ARTIFACT-ID")
-                        .desc("Model artifact id.")
-                        .build());
         artifactGroup.addOption(
                 Option.builder("p")
                         .longOpt("model-path")
@@ -217,7 +176,7 @@ public class Arguments {
                         .longOpt("iteration")
                         .hasArg()
                         .argName("ITERATION")
-                        .desc("Number of total iterations (per thread).")
+                        .desc("Number of total iterations.")
                         .build());
         options.addOption(
                 Option.builder("t")
@@ -225,6 +184,13 @@ public class Arguments {
                         .hasArg()
                         .argName("NUMBER_THREADS")
                         .desc("Number of inference threads.")
+                        .build());
+        options.addOption(
+                Option.builder("g")
+                        .longOpt("gpus")
+                        .hasArg()
+                        .argName("NUMBER_GPUS")
+                        .desc("Number of GPUS to run multithreading inference.")
                         .build());
         options.addOption(
                 Option.builder("l")
@@ -240,19 +206,20 @@ public class Arguments {
                         .argName("OUTPUT-DIR")
                         .desc("Directory for output logs.")
                         .build());
-        options.addOption(
-                Option.builder("r")
-                        .longOpt("criteria")
-                        .hasArg()
-                        .argName("CRITERIA")
-                        .desc("The criteria (json string) used for searching the model.")
-                        .build());
         return options;
     }
 
     static boolean hasHelp(String[] args) {
         List<String> list = Arrays.asList(args);
         return list.contains("-h") || list.contains("help");
+    }
+
+    static void printHelp(String msg, Options options) {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.setSyntaxPrefix("");
+        formatter.setLeftPadding(1);
+        formatter.setWidth(120);
+        formatter.printHelp(msg, options);
     }
 
     int getDuration() {
@@ -263,16 +230,12 @@ public class Arguments {
         return engine;
     }
 
-    String getModelUrls() {
-        return modelUrls;
+    String getModelUrl() {
+        return modelUrl;
     }
 
     String getModelName() {
         return modelName;
-    }
-
-    String getArtifactId() {
-        return artifactId;
     }
 
     int getIteration() {
@@ -283,15 +246,15 @@ public class Arguments {
         return threads;
     }
 
+    int getMaxGpus() {
+        return maxGpus;
+    }
+
     String getOutputDir() {
         if (outputDir == null) {
             outputDir = "build";
         }
         return outputDir;
-    }
-
-    Map<String, String> getCriteria() {
-        return criteria;
     }
 
     int getDelay() {

@@ -12,22 +12,38 @@
  */
 package ai.djl.onnxruntime.zoo;
 
+import ai.djl.Application.Tabular;
 import ai.djl.onnxruntime.engine.OrtEngine;
-import ai.djl.onnxruntime.zoo.tabular.softmax_regression.IrisClassificationModelLoader;
+import ai.djl.repository.MRL;
 import ai.djl.repository.Repository;
+import ai.djl.repository.zoo.BaseModelLoader;
+import ai.djl.repository.zoo.ModelLoader;
 import ai.djl.repository.zoo.ModelZoo;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /** OrtModelZoo is a repository that contains all Onnx models for DJL. */
-public class OrtModelZoo implements ModelZoo {
+public class OrtModelZoo extends ModelZoo {
 
     private static final String DJL_REPO_URL = "https://mlrepo.djl.ai/";
     private static final Repository REPOSITORY = Repository.newInstance("Ort", DJL_REPO_URL);
     public static final String GROUP_ID = "ai.djl.onnxruntime";
 
-    public static final IrisClassificationModelLoader IRIS_FLOWER =
-            new IrisClassificationModelLoader(REPOSITORY);
+    private static final List<ModelLoader> MODEL_LOADERS = new ArrayList<>();
+
+    static {
+        MRL irisFlower =
+                REPOSITORY.model(Tabular.SOFTMAX_REGRESSION, GROUP_ID, "iris_flowers", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(irisFlower));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ModelLoader> getModelLoaders() {
+        return MODEL_LOADERS;
+    }
 
     /** {@inheritDoc} */
     @Override

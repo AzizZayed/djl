@@ -34,7 +34,6 @@ import java.nio.FloatBuffer;
 import java.time.Duration;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
@@ -72,50 +71,62 @@ public abstract class AbstractBenchmark {
         Options options = Arguments.getOptions();
         try {
             if (Arguments.hasHelp(args)) {
-                printHelp("benchmark [-p MODEL-PATH] -s INPUT-SHAPES [OPTIONS]", options);
+                Arguments.printHelp(
+                        "usage: djl-bench [-p MODEL-PATH] -s INPUT-SHAPES [OPTIONS]", options);
                 return true;
             }
             DefaultParser parser = new DefaultParser();
             CommandLine cmd = parser.parse(options, args, null, false);
             Arguments arguments = new Arguments(cmd);
-            String engine = arguments.getEngine();
+            String engineName = arguments.getEngine();
+            Engine engine = Engine.getEngine(engineName);
 
             long init = System.nanoTime();
-            String version = Engine.getEngine(engine).getVersion();
+            String version = engine.getVersion();
             long loaded = System.nanoTime();
             logger.info(
                     String.format(
                             "Load %s (%s) in %.3f ms.",
-                            engine, version, (loaded - init) / 1_000_000f));
+                            engineName, version, (loaded - init) / 1_000_000f));
             Duration duration = Duration.ofSeconds(arguments.getDuration());
+            Object devices;
+            if (this instanceof MultithreadedBenchmark) {
+                devices = engine.getDevices(arguments.getMaxGpus());
+            } else {
+                devices = engine.defaultDevice();
+            }
+
             if (arguments.getDuration() != 0) {
                 logger.info(
                         "Running {} on: {}, duration: {} minutes.",
                         getClass().getSimpleName(),
-                        Device.defaultDevice(),
+                        devices,
                         duration.toMinutes());
             } else {
-                logger.info(
-                        "Running {} on: {}.", getClass().getSimpleName(), Device.defaultDevice());
+                logger.info("Running {} on: {}.", getClass().getSimpleName(), devices);
             }
             int numOfThreads = arguments.getThreads();
             int iteration = arguments.getIteration();
             if (this instanceof MultithreadedBenchmark) {
-                iteration = Math.max(iteration, 10) * numOfThreads;
+                int expected = 10 * numOfThreads;
+                if (iteration < expected) {
+                    iteration = expected;
+                    logger.info(
+                            "Iteration is too small for multi-threading benchmark. Adjust to: {}",
+                            iteration);
+                }
             }
             while (!duration.isNegative()) {
                 Metrics metrics = new Metrics(); // Reset Metrics for each test loop.
                 progressBar = new ProgressBar("Iteration", iteration);
-                long begin = System.currentTimeMillis();
                 float[] lastResult = predict(arguments, metrics, iteration);
                 if (lastResult == null) {
                     return false;
                 }
 
-                if (metrics.hasMetric("mt_start")) {
-                    begin = metrics.getMetric("mt_start").get(0).getValue().longValue();
-                }
-                long totalTime = System.currentTimeMillis() - begin;
+                long begin = metrics.getMetric("start").get(0).getValue().longValue();
+                long end = metrics.getMetric("end").get(0).getValue().longValue();
+                long totalTime = end - begin;
 
                 if (lastResult.length > 3) {
                     logger.info(
@@ -228,47 +239,40 @@ public abstract class AbstractBenchmark {
             }
             return true;
         } catch (ParseException e) {
-            printHelp(e.getMessage(), options);
+            Arguments.printHelp(e.getMessage(), options);
         } catch (Throwable t) {
             logger.error("Unexpected error", t);
         }
         return false;
     }
 
-    protected ZooModel<Void, float[]> loadModel(Arguments arguments, Metrics metrics)
+    protected ZooModel<Void, float[]> loadModel(Arguments arguments, Metrics metrics, Device device)
             throws ModelException, IOException {
         long begin = System.nanoTime();
-        String artifactId = arguments.getArtifactId();
         PairList<DataType, Shape> shapes = arguments.getInputShapes();
         BenchmarkTranslator translator = new BenchmarkTranslator(shapes);
 
         Criteria<Void, float[]> criteria =
                 Criteria.builder()
                         .setTypes(Void.class, float[].class)
-                        .optModelUrls(arguments.getModelUrls())
+                        .optModelUrls(arguments.getModelUrl())
                         .optModelName(arguments.getModelName())
                         .optEngine(arguments.getEngine())
-                        .optFilters(arguments.getCriteria())
-                        .optArtifactId(artifactId)
+                        .optDevice(device)
                         .optTranslator(translator)
                         .optProgress(new ProgressBar())
                         .build();
 
         ZooModel<Void, float[]> model = criteria.loadModel();
-        long delta = System.nanoTime() - begin;
-        logger.info(
-                "Model {} loaded in: {} ms.",
-                model.getName(),
-                String.format("%.3f", delta / 1_000_000f));
-        metrics.addMetric("LoadModel", delta);
+        if (device == Device.cpu() || device == Device.gpu()) {
+            long delta = System.nanoTime() - begin;
+            logger.info(
+                    "Model {} loaded in: {} ms.",
+                    model.getName(),
+                    String.format("%.3f", delta / 1_000_000f));
+            metrics.addMetric("LoadModel", delta);
+        }
         return model;
-    }
-
-    private void printHelp(String msg, Options options) {
-        HelpFormatter formatter = new HelpFormatter();
-        formatter.setLeftPadding(1);
-        formatter.setWidth(120);
-        formatter.printHelp(msg, options);
     }
 
     private static final class BenchmarkTranslator implements Translator<Void, float[]> {

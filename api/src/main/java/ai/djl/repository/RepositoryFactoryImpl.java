@@ -12,6 +12,8 @@
  */
 package ai.djl.repository;
 
+import ai.djl.repository.zoo.ModelLoader;
+import ai.djl.repository.zoo.ModelZoo;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -25,8 +27,6 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,8 +34,6 @@ class RepositoryFactoryImpl implements RepositoryFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(RepositoryFactoryImpl.class);
 
-    private static final Pattern NAME_PATTERN = Pattern.compile("model_name=([^&]*)");
-    private static final Pattern ARTIFACT_PATTERN = Pattern.compile("artifact_id=([^&]*)");
     private static final RepositoryFactory FACTORY = new RepositoryFactoryImpl();
     private static final Map<String, RepositoryFactory> REGISTRY = init();
 
@@ -45,71 +43,27 @@ class RepositoryFactoryImpl implements RepositoryFactory {
 
     /** {@inheritDoc} */
     @Override
-    public Repository newInstance(String name, String url) {
-        URI uri = URI.create(url);
+    public Repository newInstance(String name, URI uri) {
         String scheme = uri.getScheme();
         if (scheme == null) {
             scheme = "file";
         }
         RepositoryFactory factory = REGISTRY.get(scheme);
         if (factory != null) {
-            return factory.newInstance(name, url);
+            return factory.newInstance(name, uri);
         }
 
-        if ("jar".equals(scheme)) {
-            String p = uri.getPath();
-            if (p.startsWith("/")) {
-                p = p.substring(1);
-            }
-            URL u = Thread.currentThread().getContextClassLoader().getResource(p);
-            if (u == null) {
-                throw new IllegalArgumentException("Resource not found: " + url);
-            }
-            try {
-                uri = u.toURI();
-            } catch (URISyntaxException e) {
-                throw new IllegalArgumentException("Resource not found: " + url, e);
-            }
-        } else if (!"file".equals(scheme)) {
-            try {
-                uri.toURL();
-            } catch (MalformedURLException e) {
-                throw new IllegalArgumentException("Malformed URL: " + url, e);
-            }
+        try {
+            uri.toURL();
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException("Malformed URL: " + uri, e);
         }
 
-        String uriPath = uri.getPath();
-        if (uriPath.startsWith("/") && System.getProperty("os.name").startsWith("Win")) {
-            uriPath = uriPath.substring(1);
-        }
-        Path path = Paths.get(uriPath);
-
+        Path path = parseFilePath(uri);
         String fileName = path.toFile().getName();
-        String[] names = parseQueryString(uri, fileName);
-        if ("file".equalsIgnoreCase(scheme)) {
-            if (Files.exists(path) && Files.isDirectory(path)) {
-                try {
-                    if (Files.walk(path)
-                            .anyMatch(
-                                    f ->
-                                            f.endsWith("metadata.json")
-                                                    && Files.isRegularFile(f)
-                                                    && !f.getParent().equals(path))) {
-                        logger.debug("Found local repository: {}", path);
-                        return new LocalRepository(name, path);
-                    }
-                } catch (IOException e) {
-                    logger.warn("Failed locate metadata.json file, defaulting to simple", e);
-                }
-            }
-            return new SimpleRepository(name, path, names[0], names[1]);
-        } else if ("jar".equals(scheme)) {
-            if (!FilenameUtils.isArchiveFile(fileName)) {
-                throw new IllegalArgumentException("Only archive file is supported for res URL.");
-            }
-            return new JarRepository(name, uri, names[0], names[1]);
-        } else if (FilenameUtils.isArchiveFile(fileName)) {
-            return new SimpleUrlRepository(name, uri, names[0], names[1]);
+        if (FilenameUtils.isArchiveFile(fileName)) {
+            fileName = FilenameUtils.getNamePart(fileName);
+            return new SimpleUrlRepository(name, uri, fileName);
         }
         return new RemoteRepository(name, uri);
     }
@@ -128,6 +82,10 @@ class RepositoryFactoryImpl implements RepositoryFactory {
 
     private static Map<String, RepositoryFactory> init() {
         Map<String, RepositoryFactory> registry = new ConcurrentHashMap<>();
+        registry.put("file", new LocalRepositoryFactory());
+        registry.put("jar", new JarRepositoryFactory());
+        registry.put("djl", new DjlRepositoryFactory());
+
         ServiceLoader<RepositoryFactory> factories = ServiceLoader.load(RepositoryFactory.class);
         for (RepositoryFactory factory : factories) {
             for (String scheme : factory.getSupportedScheme()) {
@@ -137,27 +95,135 @@ class RepositoryFactoryImpl implements RepositoryFactory {
         return registry;
     }
 
-    private static String[] parseQueryString(URI uri, String fileName) {
-        String modelName = null;
-        String artifactId = null;
-        String query = uri.getQuery();
-        if (query != null) {
-            Matcher matcher = NAME_PATTERN.matcher(query);
-            if (matcher.find()) {
-                modelName = matcher.group(1);
+    static Path parseFilePath(URI uri) {
+        String uriPath = uri.getPath();
+        if (uriPath == null) {
+            uriPath = uri.getSchemeSpecificPart();
+        }
+        if (uriPath.startsWith("/") && System.getProperty("os.name").startsWith("Win")) {
+            uriPath = uriPath.substring(1);
+        }
+        return Paths.get(uriPath);
+    }
+
+    private static final class JarRepositoryFactory implements RepositoryFactory {
+
+        /** {@inheritDoc} */
+        @Override
+        public Repository newInstance(String name, URI uri) {
+            String p = uri.getPath();
+            if (p.startsWith("/")) {
+                p = p.substring(1);
             }
-            matcher = ARTIFACT_PATTERN.matcher(query);
-            if (matcher.find()) {
-                artifactId = matcher.group(1);
+            URL u = Thread.currentThread().getContextClassLoader().getResource(p);
+            if (u == null) {
+                throw new IllegalArgumentException("Resource not found: " + uri);
             }
+            try {
+                uri = u.toURI();
+            } catch (URISyntaxException e) {
+                throw new IllegalArgumentException("Resource not found: " + uri, e);
+            }
+
+            Path path = parseFilePath(uri);
+            String fileName = path.toFile().getName();
+            if (!FilenameUtils.isArchiveFile(fileName)) {
+                throw new IllegalArgumentException("Only archive file is supported for res URL.");
+            }
+
+            return new JarRepository(name, uri, fileName);
         }
 
-        if (artifactId == null) {
-            artifactId = FilenameUtils.getNamePart(fileName);
+        /** {@inheritDoc} */
+        @Override
+        public Set<String> getSupportedScheme() {
+            return Collections.singleton("jar");
         }
-        if (modelName == null) {
-            modelName = artifactId;
+    }
+
+    private static final class LocalRepositoryFactory implements RepositoryFactory {
+
+        /** {@inheritDoc} */
+        @Override
+        public Repository newInstance(String name, URI uri) {
+            Path path = parseFilePath(uri);
+            if (Files.exists(path) && Files.isDirectory(path)) {
+                try {
+                    if (Files.walk(path)
+                            .anyMatch(
+                                    f ->
+                                            f.endsWith("metadata.json")
+                                                    && Files.isRegularFile(f)
+                                                    && !f.getParent().equals(path))) {
+                        logger.debug("Found local repository: {}", path);
+                        return new LocalRepository(name, path.toUri(), path);
+                    }
+                } catch (IOException e) {
+                    logger.warn("Failed locate metadata.json file, defaulting to simple", e);
+                }
+            }
+            return new SimpleRepository(name, uri, path);
         }
-        return new String[] {artifactId, modelName};
+
+        /** {@inheritDoc} */
+        @Override
+        public Set<String> getSupportedScheme() {
+            return Collections.singleton("file");
+        }
+    }
+
+    private static final class DjlRepositoryFactory implements RepositoryFactory {
+
+        /** {@inheritDoc} */
+        @Override
+        public Repository newInstance(String name, URI uri) {
+            String queryString = uri.getQuery();
+            URI djlUri;
+            if (queryString != null) {
+                djlUri = URI.create("https://mlrepo.djl.ai/?" + queryString);
+            } else {
+                djlUri = URI.create("https://mlrepo.djl.ai/");
+            }
+
+            RemoteRepository repo = new RemoteRepository(name, djlUri);
+            String groupId = uri.getHost();
+            if (groupId == null) {
+                throw new IllegalArgumentException("Invalid djl URL: " + uri);
+            }
+            Path path = parseFilePath(uri);
+            int size = path.getNameCount();
+            if (size == 0) {
+                throw new IllegalArgumentException("Invalid djl URL: " + uri);
+            }
+            String artifactId = path.getName(0).toString();
+            if (artifactId.isEmpty()) {
+                throw new IllegalArgumentException("Invalid djl URL: " + uri);
+            }
+            String version = size > 1 ? path.getName(1).toString() : null;
+            String artifactName = size > 2 ? path.getName(2).toString() : null;
+
+            ModelZoo zoo = ModelZoo.getModelZoo(groupId);
+            if (zoo == null) {
+                logger.warn("ModelZoo not found: {}", groupId);
+                return repo;
+            }
+
+            ModelLoader loader = zoo.getModelLoader(artifactId);
+            if (loader == null) {
+                logger.warn("Artifact not found: {}/{}", groupId, artifactId);
+                return repo;
+            }
+
+            MRL mrl =
+                    repo.model(loader.getApplication(), groupId, artifactId, version, artifactName);
+            repo.addResource(mrl);
+            return repo;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Set<String> getSupportedScheme() {
+            return Collections.singleton("djl");
+        }
     }
 }

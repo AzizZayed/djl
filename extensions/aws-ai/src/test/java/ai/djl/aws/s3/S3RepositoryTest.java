@@ -22,7 +22,6 @@ import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ModelNotFoundException;
 import ai.djl.repository.zoo.ZooModel;
 import java.io.IOException;
-import java.net.URI;
 import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -102,17 +101,12 @@ public class S3RepositoryTest {
 
         Assert.assertTrue(repository.isRemote());
 
-        URI url = repository.getBaseUri();
-
-        Assert.assertEquals(
-                url.toString(), "mlrepo/model/cv/image_classification/ai/djl/mxnet/mlp/0.0.1/");
-
-        MRL mrl = MRL.model(Application.UNDEFINED, "ai.djl.localmodelzoo", "mlp");
-        Artifact artifact = repository.resolve(mrl, "0.0.1", null);
+        MRL mrl = repository.model(Application.UNDEFINED, "ai.djl.localmodelzoo", "mlp");
+        Artifact artifact = repository.resolve(mrl, null);
         Assert.assertNotNull(artifact);
 
         repository = Repository.newInstance("s3", "s3://djl-ai/non-exists");
-        artifact = repository.resolve(mrl, "0.0.1", null);
+        artifact = repository.resolve(mrl, null);
         Assert.assertNull(artifact);
     }
 

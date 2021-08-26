@@ -1740,7 +1740,7 @@ public interface NDArray extends NDResource {
     NDArray minimum(Number n);
 
     /**
-     * Returns the maximum of this {@code NDArray} and the other {@code NDArray} element-wise.
+     * Returns the minimum of this {@code NDArray} and the other {@code NDArray} element-wise.
      *
      * <p>The shapes of this {@code NDArray} and the other {@code NDArray} must be broadcastable.
      *
@@ -1762,7 +1762,7 @@ public interface NDArray extends NDResource {
      * </pre>
      *
      * @param other the {@code NDArray} to be compared
-     * @return the maximum of this {@code NDArray} and the other {@code NDArray} element-wise
+     * @return the minimum of this {@code NDArray} and the other {@code NDArray} element-wise
      */
     NDArray minimum(NDArray other);
 
@@ -4396,6 +4396,15 @@ public interface NDArray extends NDResource {
      * @return an internal representative of Native {@code NDArray}
      */
     NDArrayEx getNDArrayInternal();
+
+    /**
+     * Runs the debug string representation of this {@code NDArray}.
+     *
+     * @return the debug string representation of this {@code NDArray}
+     */
+    default String toDebugString() {
+        return toDebugString(100, 10, 10, 20);
+    }
 
     /**
      * Runs the debug string representation of this {@code NDArray}.

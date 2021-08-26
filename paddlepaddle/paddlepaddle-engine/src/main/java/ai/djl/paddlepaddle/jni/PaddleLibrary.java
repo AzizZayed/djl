@@ -36,11 +36,23 @@ final class PaddleLibrary {
 
     native String getTensorName(long handle);
 
+    native void setTensorLoD(long handle, long[][] lod);
+
+    native long[][] getTensorLoD(long handle);
+
     native void loadExtraDir(String[] args);
 
     native long createAnalysisConfig(String modelDir, String paramDir, int deviceId);
 
     native void analysisConfigEnableMKLDNN(long handle);
+
+    native void analysisConfigDisableGLog(long handle);
+
+    native void analysisConfigCMLNumThreads(long handle, int threads);
+
+    native void analysisConfigSwitchIrOptim(long handle, boolean condition);
+
+    native void analysisConfigRemovePass(long handle, String pass);
 
     native void useFeedFetchOp(long handle);
 

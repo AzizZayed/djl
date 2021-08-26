@@ -21,12 +21,13 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.paddlepaddle.jni.JniUtils;
 import ai.djl.util.NativeResource;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 /** {@code PpNDArray} is the PaddlePaddle implementation of {@link NDArray}. */
 public class PpNDArray extends NativeResource<Long> implements NDArrayAdapter {
 
     private PpNDManager manager;
+    // we keep the data to prevent GC from early collecting native memory
+    private ByteBuffer data;
     private Shape shape;
     private DataType dataType;
 
@@ -34,12 +35,34 @@ public class PpNDArray extends NativeResource<Long> implements NDArrayAdapter {
      * Constructs an PpNDArray from a native handle (internal. Use {@link NDManager} instead).
      *
      * @param manager the manager to attach the new array to
+     * @param data bytebuffer that holds the native memory
      * @param handle the pointer to the native MxNDArray memory
      */
-    public PpNDArray(PpNDManager manager, long handle) {
+    public PpNDArray(PpNDManager manager, ByteBuffer data, long handle) {
         super(handle);
         this.manager = manager;
+        this.data = data;
         manager.attachInternal(getUid(), this);
+    }
+
+    /**
+     * Sets the Level-of-Detail field of the NDArray.
+     *
+     * <p>checkout https://www.bookstack.cn/read/PaddlePaddle-1.3-fluid/27.md
+     *
+     * @param lod the Level-of-Detail representation
+     */
+    public void setLoD(long[][] lod) {
+        JniUtils.setNdLoD(this, lod);
+    }
+
+    /**
+     * Gets the Level-of-Detail field of the NDArray.
+     *
+     * @return the Level-of-Detail representation
+     */
+    public long[][] getLoD() {
+        return JniUtils.getNdLoD(this);
     }
 
     /** {@inheritDoc} */
@@ -111,7 +134,11 @@ public class PpNDArray extends NativeResource<Long> implements NDArrayAdapter {
     /** {@inheritDoc} */
     @Override
     public ByteBuffer toByteBuffer() {
-        return JniUtils.getByteBufferFromNd(this);
+        if (data == null) {
+            data = JniUtils.getByteBufferFromNd(this);
+        }
+        data.rewind();
+        return data;
     }
 
     /** {@inheritDoc} */
@@ -120,14 +147,7 @@ public class PpNDArray extends NativeResource<Long> implements NDArrayAdapter {
         if (isReleased()) {
             return "This array is already closed";
         }
-        return "ND: "
-                + getShape()
-                + ' '
-                + getDevice()
-                + ' '
-                + getDataType()
-                + '\n'
-                + Arrays.toString(toArray());
+        return toDebugString();
     }
 
     /** {@inheritDoc} */
@@ -136,6 +156,7 @@ public class PpNDArray extends NativeResource<Long> implements NDArrayAdapter {
         Long pointer = handle.getAndSet(null);
         if (pointer != null) {
             JniUtils.deleteNd(pointer);
+            data = null;
         }
     }
 }

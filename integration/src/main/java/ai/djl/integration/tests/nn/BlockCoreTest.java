@@ -36,6 +36,7 @@ import ai.djl.nn.convolutional.Conv3d;
 import ai.djl.nn.core.Linear;
 import ai.djl.nn.norm.BatchNorm;
 import ai.djl.nn.norm.Dropout;
+import ai.djl.nn.norm.LayerNorm;
 import ai.djl.nn.recurrent.GRU;
 import ai.djl.nn.recurrent.LSTM;
 import ai.djl.nn.recurrent.RNN;
@@ -55,6 +56,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import org.testng.Assert;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 public class BlockCoreTest {
@@ -194,6 +196,68 @@ public class BlockCoreTest {
                     NDManager manager = trainer.getManager();
                     NDArray data = manager.create(new float[] {1, 2, 3, 4}, inputShape);
                     NDArray expected = manager.create(new float[] {-1, -1, 1, 1}, inputShape);
+                    NDArray result = trainer.forward(new NDList(data)).singletonOrThrow();
+                    Assertions.assertAlmostEquals(result, expected);
+                    testEncode(manager, block);
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("try")
+    @Test
+    public void testLayerNorm() throws IOException, MalformedModelException {
+        if (!"PyTorch".equals(Engine.getInstance().getEngineName())) {
+            throw new SkipException("Only works for PyTorch engine.");
+        }
+
+        TrainingConfig config =
+                new DefaultTrainingConfig(Loss.l2Loss())
+                        .optInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
+
+        Block block = LayerNorm.builder().build();
+        try (Model model = Model.newInstance("model")) {
+            model.setBlock(block);
+
+            try (Trainer trainer = model.newTrainer(config)) {
+                try (GradientCollector collector = trainer.newGradientCollector()) {
+                    Shape inputShape = new Shape(2, 2);
+                    trainer.initialize(inputShape);
+
+                    NDManager manager = trainer.getManager();
+                    NDArray data = manager.create(new float[] {1, 3, 2, 4}, inputShape);
+                    NDArray expected = manager.create(new float[] {-1, 1, -1, 1}, inputShape);
+                    NDArray result = trainer.forward(new NDList(data)).singletonOrThrow();
+                    Assertions.assertAlmostEquals(result, expected);
+                    testEncode(manager, block);
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("try")
+    @Test
+    public void test2LayerNorm() throws IOException, MalformedModelException {
+        if (!"PyTorch".equals(Engine.getInstance().getEngineName())) {
+            throw new SkipException("Only works for PyTorch engine.");
+        }
+
+        TrainingConfig config =
+                new DefaultTrainingConfig(Loss.l2Loss())
+                        .optInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
+
+        Block block = LayerNorm.builder().axis(2, 3).build();
+        try (Model model = Model.newInstance("model")) {
+            model.setBlock(block);
+
+            try (Trainer trainer = model.newTrainer(config)) {
+                try (GradientCollector collector = trainer.newGradientCollector()) {
+                    Shape inputShape = new Shape(1, 2, 1, 2);
+                    trainer.initialize(inputShape);
+
+                    NDManager manager = trainer.getManager();
+                    NDArray data = manager.create(new float[] {1, 3, 2, 4}, inputShape);
+                    NDArray expected = manager.create(new float[] {-1, 1, -1, 1}, inputShape);
                     NDArray result = trainer.forward(new NDList(data)).singletonOrThrow();
                     Assertions.assertAlmostEquals(result, expected);
                     testEncode(manager, block);

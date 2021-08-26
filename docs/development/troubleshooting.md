@@ -28,7 +28,7 @@ For example, adding MXNet engine dependencies:
 Gradle:
 
 ```
-implementation "ai.djl.mxnet:mxnet-engine:0.11.0"
+implementation "ai.djl.mxnet:mxnet-engine:0.12.0"
 // See https://github.com/deepjavalibrary/djl/blob/master/mxnet/mxnet-engine/README.md for more MXNet library selection options
 runtimeOnly "ai.djl.mxnet:mxnet-native-auto:1.8.0"
 ```
@@ -145,6 +145,7 @@ Then, right click the `log4j2.xml` file and select `Recompile log4j2.xml`.
 
 
 ## 4. How to run DJL using other versions of Apache MXNet?
+
 **Note:** this is not officially supported by DJL, and some functions may not work. 
 If you require features in Apache MXNet not provided by DJL, please submit an [issue](https://github.com/deepjavalibrary/djl/issues).
 
