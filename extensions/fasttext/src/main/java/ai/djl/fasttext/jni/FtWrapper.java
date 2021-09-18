@@ -58,7 +58,7 @@ public final class FtWrapper extends NativeResource<Long> {
         return FastTextLibrary.LIB.getModelType(getHandle());
     }
 
-    public Classifications predictProba(String text, int topK) {
+    public Classifications predictProba(String text, int topK, String labelPrefix) {
         String[] labels = new String[topK];
         float[] probs = new float[topK];
 
@@ -68,8 +68,8 @@ public final class FtWrapper extends NativeResource<Long> {
         List<Double> probabilities = new ArrayList<>(size);
         for (int i = 0; i < size; ++i) {
             String label = labels[i];
-            if (label.startsWith("__label__")) {
-                label = label.substring(9);
+            if (label.startsWith(labelPrefix)) {
+                label = label.substring(labelPrefix.length());
             }
             classes.add(label);
             probabilities.add((double) probs[i]);

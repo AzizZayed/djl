@@ -3,7 +3,7 @@ name: Native JNI S3 PyTorch
 on:
   workflow_dispatch:
   schedule:
-    - cron:  '0 5 * * *'
+    - cron: '0 5 * * *'
 
 jobs:
   build-pytorch-jni-cpu:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.operating-system }}
     strategy:
       matrix:
-        operating-system: [macos-latest, windows-latest]
+        operating-system: [ macos-latest, windows-latest ]
 
     steps:
       - uses: actions/checkout@v2
@@ -25,12 +25,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      - name: Workaround for startup run
-        run: ./gradlew jar clean
       - name: Release JNI prep
-        run: ./gradlew :pytorch:pytorch-native:releaseJNI
-      - name: Test with Gradle
-        run: ./gradlew :integration:test "-Dai.djl.default_engine=PyTorch"
+        run: |
+          ./gradlew :engines:pytorch:pytorch-native:releaseJNI
+          ./gradlew -Pjni :integration:test "-Dai.djl.default_engine=PyTorch"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -67,12 +65,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      - name: Workaround for startup run
-        run: ./gradlew jar clean
       - name: Release JNI prep
         run: |
-          ./gradlew :pytorch:pytorch-native:releaseJNI
-          ./gradlew :integration:test "-Dai.djl.default_engine=PyTorch"
+          ./gradlew :engines:pytorch:pytorch-native:releaseJNI
+          ./gradlew -Pjni :integration:test "-Dai.djl.default_engine=PyTorch"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -102,7 +98,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Release JNI prep
-        run: ./gradlew :pytorch:pytorch-native:releaseJNI -Pgpu
+        run: ./gradlew :engines:pytorch:pytorch-native:releaseJNI -Pgpu
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -141,7 +137,7 @@ jobs:
       - name: Release JNI prep
         run: |
           source scl_source enable devtoolset-7 rh-git218 || true
-          ./gradlew :pytorch:pytorch-native:releaseJNI -Pprecxx11
+          ./gradlew :engines:pytorch:pytorch-native:releaseJNI -Pprecxx11
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -196,7 +192,7 @@ jobs:
           set "CUDA_PATH_V10_2=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.2"
           set "CUDA_PATH_V11_1=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v11.1"
           set "PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin;%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.2\libnvvp;%PATH%"
-          gradlew :pytorch:pytorch-native:releaseJNI -Pgpu
+          gradlew :engines:pytorch:pytorch-native:releaseJNI -Pgpu
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:

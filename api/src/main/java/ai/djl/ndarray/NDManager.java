@@ -139,7 +139,7 @@ public interface NDManager extends AutoCloseable {
      * @param resource the resource to use
      * @return a new memory scrope containing the array
      */
-    static NDManager from(NDResource resource) {
+    static NDManager subManagerOf(NDResource resource) {
         return resource.getManager().newSubManager();
     }
 
@@ -160,6 +160,14 @@ public interface NDManager extends AutoCloseable {
      * @return the new byte buffer
      */
     ByteBuffer allocateDirect(int capacity);
+
+    /**
+     * Creates a new {@code NDArray} if the input {@link NDArray} is from external engine.
+     *
+     * @param array the input {@code NDArray}
+     * @return a new {@code NDArray} if the input {@code NDArray} is from external engine
+     */
+    NDArray from(NDArray array);
 
     /**
      * Creates an uninitialized instance of {@link DataType#FLOAT32} {@link NDArray} with specified
