@@ -22,6 +22,7 @@ import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OrtException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
 import java.util.UUID;
 
 /** {@code OrtNDArray} is the ONNX Runtime implementation of {@link NDArray}. */
@@ -67,6 +68,13 @@ public class OrtNDArray extends NDArrayAdapter {
 
     /** {@inheritDoc} */
     @Override
+    public void intern(NDArray replaced) {
+        tensor.close();
+        tensor = ((OrtNDArray) replaced).tensor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void detach() {
         manager.detachInternal(getUid());
         manager = OrtNDManager.getSystemManager();
@@ -74,9 +82,14 @@ public class OrtNDArray extends NDArrayAdapter {
 
     /** {@inheritDoc} */
     @Override
-    public String[] toStringArray() {
+    public String[] toStringArray(Charset charset) {
         try {
-            return (String[]) tensor.getValue();
+            Object obj = tensor.getValue();
+            if (obj instanceof String) {
+                // Scalar type;
+                return new String[] {(String) obj};
+            }
+            return (String[]) obj;
         } catch (OrtException e) {
             throw new EngineException(e);
         }
@@ -85,6 +98,9 @@ public class OrtNDArray extends NDArrayAdapter {
     /** {@inheritDoc} */
     @Override
     public ByteBuffer toByteBuffer() {
+        if (getDataType() == DataType.STRING) {
+            throw new IllegalArgumentException("Please use toStringArray() for String NDArray.");
+        }
         return tensor.getByteBuffer().order(ByteOrder.nativeOrder());
     }
 

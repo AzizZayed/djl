@@ -12,7 +12,7 @@ Use of these classes will couple your code to the ONNX Runtime and make switchin
 ONNX Runtime is a DL library with limited support for NDArray operations.
 Currently, it only covers the basic NDArray creation methods. To better support the necessary preprocessing and postprocessing,
 you can use one of the other Engine along with it to run in a hybrid mode.
-For more information, see [Hybrid Engine for ONNX Runtime](../../docs/hybrid_engine.md).
+For more information, see [Hybrid Engine](../../../docs/hybrid_engine.md).
 
 ## Documentation
 
@@ -37,13 +37,13 @@ for the official ONNX Runtime project.
 ## Installation
 You can pull the ONNX Runtime engine from the central Maven repository by including the following dependency:
 
-- ai.djl.onnxruntime:onnxruntime-engine:0.12.0
+- ai.djl.onnxruntime:onnxruntime-engine:0.13.0
 
 ```xml
 <dependency>
     <groupId>ai.djl.onnxruntime</groupId>
     <artifactId>onnxruntime-engine</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
@@ -61,7 +61,7 @@ Maven:
 <dependency>
     <groupId>ai.djl.onnxruntime</groupId>
     <artifactId>onnxruntime-engine</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0</version>
     <scope>runtime</scope>
     <exclusions>
         <exclusion>
@@ -73,15 +73,15 @@ Maven:
 <dependency>
     <groupId>com.microsoft.onnxruntime</groupId>
     <artifactId>onnxruntime_gpu</artifactId>
-    <version>1.8.1</version>
+    <version>1.9.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
 
 Gradle:
 ```
-    implementation("ai.djl.onnxruntime:onnxruntime-engine:0.12.0") {
+    implementation("ai.djl.onnxruntime:onnxruntime-engine:0.13.0") {
         exclude group: "com.microsoft.onnxruntime", module: "onnxruntime"
     }
-    implementation "com.microsoft.onnxruntime:onnxruntime_gpu:1.8.1"
+    implementation "com.microsoft.onnxruntime:onnxruntime_gpu:1.9.0"
 ```

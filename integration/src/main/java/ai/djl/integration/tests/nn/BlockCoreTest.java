@@ -16,7 +16,7 @@ import ai.djl.MalformedModelException;
 import ai.djl.Model;
 import ai.djl.engine.Engine;
 import ai.djl.integration.util.TestUtils;
-import ai.djl.modality.nlp.SimpleVocabulary;
+import ai.djl.modality.nlp.DefaultVocabulary;
 import ai.djl.modality.nlp.embedding.TrainableWordEmbedding;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
@@ -302,7 +302,11 @@ public class BlockCoreTest {
 
         TrainableWordEmbedding block =
                 TrainableWordEmbedding.builder()
-                        .setVocabulary(new SimpleVocabulary(Arrays.asList("a", "b", "c")))
+                        .setVocabulary(
+                                DefaultVocabulary.builder()
+                                        .add(Arrays.asList("a", "b", "c"))
+                                        .optUnknownToken()
+                                        .build())
                         .setEmbeddingSize(2)
                         .build();
         try (Model model = Model.newInstance("model")) {
@@ -654,7 +658,6 @@ public class BlockCoreTest {
     @SuppressWarnings("try")
     @Test
     public void testGRU() throws IOException, MalformedModelException {
-
         Loss loss = new SoftmaxCrossEntropyLoss("SmCeLoss", 1, -1, false, true);
         TrainingConfig config =
                 new DefaultTrainingConfig(loss)

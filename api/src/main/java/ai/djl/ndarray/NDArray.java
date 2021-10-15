@@ -26,6 +26,8 @@ import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -41,7 +43,7 @@ import java.util.stream.LongStream;
  * href="https://github.com/deepjavalibrary/djl/blob/master/docs/development/memory_management.md">NDArray
  * Memory Management Guide</a>
  */
-public interface NDArray extends NDResource {
+public interface NDArray extends NDResource, BytesSupplier {
 
     /**
      * Decodes {@code NDArray} from bytes.
@@ -346,7 +348,19 @@ public interface NDArray extends NDResource {
      *
      * @return Array of Strings
      */
-    String[] toStringArray();
+    default String[] toStringArray() {
+        return toStringArray(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Converts this {@code NDArray} to a String array with the specified charset.
+     *
+     * <p>This method is only applicable to the String typed NDArray and not for printing purpose
+     *
+     * @param charset to charset for the string
+     * @return Array of Strings
+     */
+    String[] toStringArray(Charset charset);
 
     /**
      * Converts this {@code NDArray} to a Number array based on its {@link DataType}.
@@ -381,13 +395,6 @@ public interface NDArray extends NDResource {
                 throw new IllegalStateException("Unsupported DataType: " + getDataType());
         }
     }
-
-    /**
-     * Converts this {@code NDArray} to a ByteBuffer.
-     *
-     * @return a ByteBuffer
-     */
-    ByteBuffer toByteBuffer();
 
     /**
      * Sets this {@code NDArray} value from {@link Buffer}.
@@ -3483,8 +3490,8 @@ public interface NDArray extends NDResource {
      * ]
      * jshell&gt; array.sort(0); // sort along the first axis
      * ND: (2, 2) cpu() float32
-     * [[1., 4.],
-     *  [1., 3.],
+     * [[1., 1.],
+     *  [3., 4.],
      * ]
      * </pre>
      *

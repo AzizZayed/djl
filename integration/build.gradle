@@ -16,7 +16,7 @@ dependencies {
     runtimeOnly project(":engines:mxnet:mxnet-model-zoo")
     runtimeOnly "ai.djl.mxnet:mxnet-native-auto:${mxnet_version}"
     runtimeOnly project(":engines:pytorch:pytorch-model-zoo")
-    runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_version}"
+    runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_native_version}"
     runtimeOnly project(":engines:tensorflow:tensorflow-model-zoo")
     runtimeOnly "ai.djl.tensorflow:tensorflow-native-auto:${tensorflow_version}"
     runtimeOnly project(":engines:ml:xgboost")
@@ -42,7 +42,7 @@ task copyDependencies(type: Copy) {
 }
 
 application {
-    getMainClass().set(System.getProperty("main", "ai.djl.integration.IntegrationTest"))
+    mainClass = System.getProperty("main", "ai.djl.integration.IntegrationTest")
 }
 
 run {
@@ -70,8 +70,8 @@ jacocoTestReport {
     }
 
     reports {
-        xml.enabled true
-        csv.enabled false
+        xml.required = true
+        csv.required = false
     }
 
     // Work-around to allow us to build list of executionData files in doFirst
@@ -85,7 +85,7 @@ task debugEnv(type: JavaExec) {
     systemProperties System.getProperties()
     systemProperties.remove("user.dir")
     systemProperties.put("ai.djl.logging.level", "debug")
-    main = "ai.djl.integration.util.DebugEnvironment"
+    mainClass = "ai.djl.integration.util.DebugEnvironment"
 }
 
 tasks.distTar.enabled = false

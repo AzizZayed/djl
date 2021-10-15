@@ -16,17 +16,10 @@ import ai.djl.Application;
 import ai.djl.Model;
 import ai.djl.modality.Input;
 import ai.djl.modality.Output;
-import ai.djl.modality.cv.Image;
-import ai.djl.modality.cv.ImageFactory;
 import ai.djl.modality.cv.translator.ImageClassificationTranslator;
-import ai.djl.modality.cv.translator.SingleShotDetectionTranslator;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
-import ai.djl.util.JsonSerializable;
-import ai.djl.util.JsonUtils;
 import ai.djl.util.Pair;
-import ai.djl.util.PairList;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -64,12 +57,23 @@ public class ServingTranslatorFactory implements TranslatorFactory {
     /** {@inheritDoc} */
     @Override
     public Translator<?, ?> newInstance(
-            Class<?> input, Class<?> output, Model model, Map<String, ?> arguments) {
+            Class<?> input, Class<?> output, Model model, Map<String, ?> arguments)
+            throws TranslateException {
         if (!isSupported(input, output)) {
             throw new IllegalArgumentException("Unsupported input/output types.");
         }
 
         Path modelDir = model.getModelPath();
+        String factoryClass = (String) arguments.get("translatorFactory");
+        if (factoryClass != null && !factoryClass.isEmpty()) {
+            TranslatorFactory factory = loadTranslatorFactory(factoryClass);
+            if (factory != null
+                    && !(factory instanceof ServingTranslatorFactory)
+                    && factory.isSupported(input, output)) {
+                return factory.newInstance(input, output, model, arguments);
+            }
+        }
+
         String className = (String) arguments.get("translator");
 
         Path libPath = modelDir.resolve("libs");
@@ -166,6 +170,18 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         return null;
     }
 
+    private TranslatorFactory loadTranslatorFactory(String className) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            Class<? extends TranslatorFactory> subclass = clazz.asSubclass(TranslatorFactory.class);
+            Constructor<? extends TranslatorFactory> constructor = subclass.getConstructor();
+            return constructor.newInstance();
+        } catch (Throwable e) {
+            logger.trace("Not able to load TranslatorFactory: " + className, e);
+        }
+        return null;
+    }
+
     private ServingTranslator initTranslator(ClassLoader cl, String className) {
         try {
             Class<?> clazz = Class.forName(className, true, cl);
@@ -173,7 +189,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             Constructor<? extends ServingTranslator> constructor = subclass.getConstructor();
             return constructor.newInstance();
         } catch (Throwable e) {
-            logger.trace("Not able to load ModelServerTranslator", e);
+            logger.trace("Not able to load Translator: " + className, e);
         }
         return null;
     }
@@ -184,9 +200,6 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             Application application = Application.of(appName);
             if (application == Application.CV.IMAGE_CLASSIFICATION) {
                 return getImageClassificationTranslator(arguments);
-            } else if (application == Application.CV.OBJECT_DETECTION) {
-                // TODO: check model name
-                return getSsdTranslator(arguments);
             }
         }
         String batchifier = (String) arguments.get("batchifier");
@@ -198,10 +211,6 @@ public class ServingTranslatorFactory implements TranslatorFactory {
 
     private Translator<Input, Output> getImageClassificationTranslator(Map<String, ?> arguments) {
         return new ImageServingTranslator(ImageClassificationTranslator.builder(arguments).build());
-    }
-
-    private Translator<Input, Output> getSsdTranslator(Map<String, ?> arguments) {
-        return new ImageServingTranslator(SingleShotDetectionTranslator.builder(arguments).build());
     }
 
     private void compileJavaClass(Path dir) {
@@ -224,63 +233,6 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         }
     }
 
-    private static final class ImageServingTranslator implements Translator<Input, Output> {
-
-        private Translator<Image, ?> translator;
-        private ImageFactory factory;
-
-        public ImageServingTranslator(Translator<Image, ?> translator) {
-            this.translator = translator;
-            factory = ImageFactory.getInstance();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Batchifier getBatchifier() {
-            return translator.getBatchifier();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Output processOutput(TranslatorContext ctx, NDList list) throws Exception {
-            Output output = new Output(200, "OK");
-            Object obj = translator.processOutput(ctx, list);
-            if (obj instanceof JsonSerializable) {
-                output.setContent(((JsonSerializable) obj).toJson() + '\n');
-            } else {
-                output.setContent(JsonUtils.GSON_PRETTY.toJson(obj) + '\n');
-            }
-            output.addProperty("Content-Type", "application/json");
-            return output;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public NDList processInput(TranslatorContext ctx, Input input) throws Exception {
-            ctx.setAttachment("input", input);
-            PairList<String, byte[]> inputs = input.getContent();
-            byte[] data = inputs.get("data");
-            if (data == null) {
-                data = inputs.get("body");
-            }
-            if (data == null) {
-                data = input.getContent().valueAt(0);
-            }
-            try {
-                Image image = factory.fromInputStream(new ByteArrayInputStream(data));
-                return translator.processInput(ctx, image);
-            } catch (IOException e) {
-                throw new TranslateException("Input is not an Image data type", e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void prepare(TranslatorContext ctx) throws Exception {
-            translator.prepare(ctx);
-        }
-    }
-
     private static final class RawTranslator implements Translator<Input, Output> {
 
         private Batchifier batchifier;
@@ -298,17 +250,9 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         /** {@inheritDoc} */
         @Override
         public NDList processInput(TranslatorContext ctx, Input input) throws TranslateException {
-            PairList<String, byte[]> inputs = input.getContent();
-            byte[] data = inputs.get("data");
-            if (data == null) {
-                data = inputs.get("body");
-            }
-            if (data == null) {
-                data = input.getContent().valueAt(0);
-            }
             NDManager manager = ctx.getNDManager();
             try {
-                return NDList.decode(manager, data);
+                return input.getDataAsNDList(manager);
             } catch (IllegalArgumentException e) {
                 throw new TranslateException("Input is not a NDList data type", e);
             }
@@ -318,7 +262,8 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         @Override
         public Output processOutput(TranslatorContext ctx, NDList list) {
             Output output = new Output(200, "OK");
-            output.setContent(list.encode());
+            // TODO: find a way to pass NDList out
+            output.add(list.getAsBytes());
             output.addProperty("Content-Type", "tensor/ndlist");
             return output;
         }

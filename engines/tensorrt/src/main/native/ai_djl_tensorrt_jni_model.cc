@@ -34,6 +34,11 @@ struct UffBufferShutter {
 };
 
 void TrtModel::buildModel() {
+  if (mParams.modelType == 2) {
+    loadSerializedEngine();
+    return;
+  }
+
   auto builder = TrtUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTrtLogger()));
   if (!builder) {
     throw std::invalid_argument("Failed to call createInferBuilder.");
@@ -57,9 +62,10 @@ void TrtModel::buildModel() {
   }
 
   TrtUniquePtr<nvuffparser::IUffParser> uffParser;  // must in outer scope
+  TrtUniquePtr<nvonnxparser::IParser> onnxParser;   // must in outer scope
   if (mParams.modelType == 0) {
     // ONNX model
-    auto onnxParser = TrtUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger.getTrtLogger()));
+    onnxParser = TrtUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger.getTrtLogger()));
     if (!onnxParser) {
       throw std::invalid_argument("Failed create ONNX Parser.");
     }
@@ -149,16 +155,53 @@ void TrtModel::buildModel() {
   }
 }
 
-TrtSession *TrtModel::createSession() {
-  auto *session = new TrtSession(mEngine, mParams.maxBatchSize);
+void TrtModel::loadSerializedEngine() {
+  std::ifstream engineFile(mParams.modelPath, std::ios::binary);
+  if (!engineFile) {
+    throw std::invalid_argument("Error opening engine file: " + mParams.modelPath);
+  }
 
-  CHECK(cudaSetDevice(mParams.device));
+  engineFile.seekg(0, std::ifstream::end);
+  long int fsize = engineFile.tellg();
+  engineFile.seekg(0, std::ifstream::beg);
+
+  std::vector<char> engineData(fsize);
+  engineFile.read(engineData.data(), fsize);
+  if (!engineFile) {
+    throw std::invalid_argument("Error read: " + mParams.modelPath);
+  }
+
+  TrtUniquePtr<IRuntime> runtime{createInferRuntime(gLogger.getTrtLogger())};
+  if (mParams.dlaCore != -1) {
+    runtime->setDLACore(mParams.dlaCore);
+  }
+
+  mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(runtime->deserializeCudaEngine(engineData.data(), fsize));
+  if (mEngine == nullptr) {
+    throw std::invalid_argument("Error deserializeCudaEngine: " + mParams.modelPath);
+  }
+
+  for (int i = 0; i < mEngine->getNbBindings(); ++i) {
+    if (mEngine->bindingIsInput(i)) {
+      mInputNames.emplace_back(mEngine->getBindingName(i));
+      mInputTypes.emplace_back(mEngine->getBindingDataType(i));
+    } else {
+      mOutputNames.emplace_back(mEngine->getBindingName(i));
+      mOutputTypes.emplace_back(mEngine->getBindingDataType(i));
+    }
+  }
+}
+
+TrtSession *TrtModel::createSession() {
+  auto *session = new TrtSession(mEngine, mParams.device, mParams.maxBatchSize);
 
   session->init();
   return session;
 }
 
 void TrtSession::init() {
+  CHECK(cudaSetDevice(mDeviceId));
+
   mContext = mEngine->createExecutionContext();
   int bindings = mEngine->getNbBindings();
   mBufferSizes.reserve(bindings);
@@ -220,6 +263,8 @@ void TrtSession::copyOutputs() {
 }
 
 void TrtSession::predict() {
+  CHECK(cudaSetDevice(mDeviceId));
+
   copyInputs();
 
   bool status;

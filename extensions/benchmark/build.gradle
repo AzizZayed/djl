@@ -33,11 +33,15 @@ dependencies {
         runtimeOnly "ai.djl.dlr:dlr-native-auto"
 
         runtimeOnly "ai.djl.ml.xgboost:xgboost"
+
+        runtimeOnly "ai.djl.python:python"
+
+        runtimeOnly "ai.djl.tensorrt:tensorrt"
     } else {
         implementation project(":model-zoo")
 
         runtimeOnly project(":engines:pytorch:pytorch-model-zoo")
-        runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_version}"
+        runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_native_version}"
 
         runtimeOnly project(":engines:tensorflow:tensorflow-model-zoo")
         runtimeOnly "ai.djl.tensorflow:tensorflow-native-auto:${tensorflow_version}"
@@ -84,7 +88,7 @@ dependencies {
 }
 
 application {
-    getMainClass().set(System.getProperty("main", "ai.djl.benchmark.Benchmark"))
+    mainClass = System.getProperty("main", "ai.djl.benchmark.Benchmark")
 }
 
 run {
@@ -129,7 +133,7 @@ task benchmark(type: JavaExec) {
             jvmArgs += ["-Xlog:gc*=debug:file=build/gc.log"]
         }
     }
-    main = "ai.djl.benchmark.Benchmark"
+    mainClass = "ai.djl.benchmark.Benchmark"
 }
 
 task createDeb(type: Deb, dependsOn: distTar) {
@@ -167,6 +171,8 @@ startScripts {
 
         String text = unixScript.text.replaceAll('CLASSPATH=\\$APP_HOME/lib/.*', replacement)
         text = text.replaceAll("/usr/bin/env sh", "/usr/bin/env bash")
+        text = text.replaceAll("#!/bin/sh", "#!/bin/bash")
+
         unixScript.text = text
     }
 }

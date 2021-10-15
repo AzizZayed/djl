@@ -30,7 +30,7 @@ You can pull the PaddlePaddle engine from the central Maven repository by includ
 <dependency>
     <groupId>ai.djl.paddlepaddle</groupId>
     <artifactId>paddlepaddle-engine</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
@@ -41,7 +41,7 @@ Choose a native library based on your platform and needs:
 
 ### Automatic (Recommended)
 
-We offer an automatic option that will download the native libraries into [cache folder](../../docs/development/cache_management.md) the first time you run DJL.
+We offer an automatic option that will download the native libraries into [cache folder](../../../docs/development/cache_management.md) the first time you run DJL.
 It will automatically determine the appropriate jars for your system based on the platform and GPU support.
 
 - ai.djl.paddlepaddle:paddlepaddle-native-auto:2.0.2

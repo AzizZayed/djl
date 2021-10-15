@@ -10,7 +10,7 @@ dependencies {
 
     if (System.getProperty("ai.djl.default_engine") == "PyTorch") {
         runtimeOnly project(":engines:pytorch:pytorch-model-zoo")
-        runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_version}"
+        runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_native_version}"
     } else if (System.getProperty("ai.djl.default_engine") == "TensorFlow") {
         runtimeOnly "ai.djl.tensorflow:tensorflow-native-auto:${tensorflow_version}"
         runtimeOnly project(":engines:tensorflow:tensorflow-model-zoo")
@@ -25,7 +25,7 @@ dependencies {
 }
 
 application {
-    getMainClass().set(System.getProperty("main", "ai.djl.examples.inference.ObjectDetection"))
+    mainClass = System.getProperty("main", "ai.djl.examples.inference.ObjectDetection")
 }
 
 run {
@@ -40,7 +40,7 @@ task listmodels(type: JavaExec) {
     systemProperties.remove("user.dir")
     systemProperty("file.encoding", "UTF-8")
     classpath = sourceSets.main.runtimeClasspath
-    main = "ai.djl.examples.inference.ListModels"
+    mainClass = "ai.djl.examples.inference.ListModels"
 }
 tasks.distTar.enabled = false
 tasks.distZip.enabled = false

@@ -24,6 +24,7 @@ import ai.djl.util.Pair;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
 import org.tensorflow.internal.c_api.TFE_Context;
 import org.tensorflow.internal.c_api.TFE_TensorHandle;
 import org.tensorflow.internal.c_api.TF_Tensor;
@@ -50,7 +51,7 @@ public class TfNDManager extends BaseNDManager {
     /** {@inheritDoc} */
     @Override
     public TfNDArray from(NDArray array) {
-        if (array instanceof TfNDArray) {
+        if (array == null || array instanceof TfNDArray) {
             return (TfNDArray) array;
         }
         return create(array.toByteBuffer(), array.getShape(), array.getDataType());
@@ -58,38 +59,64 @@ public class TfNDManager extends BaseNDManager {
 
     /** {@inheritDoc} */
     @Override
-    public TfNDArray createDirect(Buffer data, Shape shape, DataType dataType) {
-        int size = Math.toIntExact(shape.size());
-        BaseNDManager.validateBufferSize(data, dataType, size);
-        ByteBuffer buf = allocateDirect(size * dataType.getNumOfBytes());
-        copyBuffer(data, buf);
-        // TODO(improvement): avoid data copy by creating directByteBuffer on tensor data pointer
-        TFE_TensorHandle handle = JavacppUtils.createTFETensorFromByteBuffer(buf, shape, dataType);
-        return new TfNDArray(this, handle);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public NDArray create(Shape shape, DataType dataType) {
+        if (dataType == DataType.STRING) {
+            throw new IllegalArgumentException(
+                    "Use NDManager.create(String[], Charset, Shape) to create String NDArray.");
+        }
         if (shape.dimension() == 0) {
             // TensorFlow does not support empty scalar(emtpy NDArray with 0 dimension)
             // initialize with scalar 0
             return create(0f).toType(dataType, false);
         }
-        TFE_TensorHandle handle = JavacppUtils.createEmptyTFETensor(shape, dataType);
+        TFE_TensorHandle handle =
+                JavacppUtils.createEmptyTFETensor(shape, dataType, getEagerSession(), device);
         return new TfNDArray(this, handle);
     }
 
     /** {@inheritDoc} */
     @Override
     public TfNDArray create(Buffer data, Shape shape, DataType dataType) {
-        return createDirect(data, shape, dataType);
+        if (dataType == DataType.STRING) {
+            throw new IllegalArgumentException(
+                    "Use NDManager.create(String[], Charset, Shape) to create String NDArray.");
+        }
+        int size = Math.toIntExact(shape.size());
+        BaseNDManager.validateBufferSize(data, dataType, size);
+        if (data.isDirect() && data instanceof ByteBuffer) {
+            TFE_TensorHandle handle =
+                    JavacppUtils.createTFETensorFromByteBuffer(
+                            (ByteBuffer) data, shape, dataType, getEagerSession(), device);
+            return new TfNDArray(this, handle);
+        }
+        ByteBuffer buf = allocateDirect(size * dataType.getNumOfBytes());
+        copyBuffer(data, buf);
+        TFE_TensorHandle handle =
+                JavacppUtils.createTFETensorFromByteBuffer(
+                        buf, shape, dataType, getEagerSession(), device);
+        return new TfNDArray(this, handle);
     }
 
     /** {@inheritDoc} */
     @Override
-    public NDArray create(String data) {
-        Pair<TF_Tensor, TFE_TensorHandle> pair = JavacppUtils.createStringTensor(data);
+    public NDArray create(String[] data, Charset charset, Shape shape) {
+        ByteBuffer[] buf = new ByteBuffer[data.length];
+        for (int i = 0; i < data.length; ++i) {
+            buf[i] = ByteBuffer.wrap(data[i].getBytes(charset));
+        }
+        return createStringTensor(shape, buf);
+    }
+
+    /**
+     * Creates a String {@link NDArray} based on the provided shape.
+     *
+     * @param shape the shape of the String NDArray
+     * @param data the flattened String array
+     * @return a new instance of {@code NDArray}
+     */
+    public NDArray createStringTensor(Shape shape, ByteBuffer... data) {
+        Pair<TF_Tensor, TFE_TensorHandle> pair =
+                JavacppUtils.createStringTensor(shape.getShape(), data);
         return new TfNDArray(this, pair.getValue(), pair.getKey());
     }
 

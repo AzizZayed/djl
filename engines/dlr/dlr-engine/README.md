@@ -12,7 +12,7 @@ Use of these classes will couple your code to the DLR and make switching between
 DLR is a DL library with limited support for NDArray operations.
 Currently, it only covers the basic NDArray creation methods. To better support the necessary preprocessing and postprocessing,
 you can use one of the other Engine along with it to run in a hybrid mode.
-For more information, see [Hybrid Engine for ONNX Runtime and DLR](../../docs/hybrid_engine.md).
+For more information, see [Hybrid Engine](../../../docs/hybrid_engine.md).
 
 ## Documentation
 
@@ -29,13 +29,13 @@ The javadocs output is generated in the `build/doc/javadoc` folder.
 ## Installation
 You can pull the DLR engine from the central Maven repository by including the following dependency:
 
-- ai.djl.dlr:dlr-engine:0.12.0
+- ai.djl.dlr:dlr-engine:0.13.0
 
 ```xml
 <dependency>
     <groupId>ai.djl.dlr</groupId>
     <artifactId>dlr-engine</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
@@ -46,7 +46,7 @@ Choose a native library based on your platform and needs:
 
 ### Automatic (Recommended)
 
-We offer an automatic option that will download the native libraries into [cache folder](../../docs/development/cache_management.md) the first time you run DJL.
+We offer an automatic option that will download the native libraries into [cache folder](../../../docs/development/cache_management.md) the first time you run DJL.
 It will automatically determine the appropriate jars for your system based on the platform and GPU support.
 
 ```xml

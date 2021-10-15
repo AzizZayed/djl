@@ -26,7 +26,7 @@ from the central Maven repository by including the following dependency:
 <dependency>
     <groupId>ai.djl.tensorflow</groupId>
     <artifactId>tensorflow-model-zoo</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0</version>
 </dependency>
 ```
 
@@ -40,4 +40,4 @@ The TensorFlow model zoo contains Computer Vision (CV) models.
 
 ### How to find a pre-trained model in model zoo
 
-Please see [DJL Model Zoo](../../model-zoo/README.md)
+Please see [DJL Model Zoo](../../../model-zoo/README.md)

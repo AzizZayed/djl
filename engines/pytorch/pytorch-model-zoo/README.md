@@ -25,7 +25,7 @@ You can pull the PyTorch engine from the central Maven repository by including t
 <dependency>
     <groupId>ai.djl.pytorch</groupId>
     <artifactId>pytorch-model-zoo</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0</version>
 </dependency>
 ```
 
@@ -41,4 +41,4 @@ The PyTorch model zoo contains Computer Vision (CV) models. All the models are g
 
 ### How to find a pre-trained model in model zoo
 
-Please see [DJL Model Zoo](../../model-zoo/README.md)
+Please see [DJL Model Zoo](../../../model-zoo/README.md)

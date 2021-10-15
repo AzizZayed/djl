@@ -47,25 +47,10 @@ public class PtNDManager extends BaseNDManager {
     /** {@inheritDoc} */
     @Override
     public PtNDArray from(NDArray array) {
-        if (array instanceof PtNDArray) {
+        if (array == null || array instanceof PtNDArray) {
             return (PtNDArray) array;
         }
         return create(array.toByteBuffer(), array.getShape(), array.getDataType());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public PtNDArray createDirect(Buffer data, Shape shape, DataType dataType) {
-        int size = Math.toIntExact(shape.size());
-        BaseNDManager.validateBufferSize(data, dataType, size);
-        if (data.isDirect() && data instanceof ByteBuffer) {
-            return JniUtils.createNdFromByteBuffer(
-                    this, (ByteBuffer) data, shape, dataType, SparseFormat.DENSE, device);
-        }
-        ByteBuffer buf = allocateDirect(size * dataType.getNumOfBytes());
-        copyBuffer(data, buf);
-        return JniUtils.createNdFromByteBuffer(
-                this, buf, shape, dataType, SparseFormat.DENSE, device);
     }
 
     /** {@inheritDoc} */
@@ -77,7 +62,16 @@ public class PtNDManager extends BaseNDManager {
     /** {@inheritDoc} */
     @Override
     public PtNDArray create(Buffer data, Shape shape, DataType dataType) {
-        return createDirect(data, shape, dataType);
+        int size = Math.toIntExact(shape.size());
+        BaseNDManager.validateBufferSize(data, dataType, size);
+        if (data.isDirect() && data instanceof ByteBuffer) {
+            return JniUtils.createNdFromByteBuffer(
+                    this, (ByteBuffer) data, shape, dataType, SparseFormat.DENSE, device);
+        }
+        ByteBuffer buf = allocateDirect(size * dataType.getNumOfBytes());
+        copyBuffer(data, buf);
+        return JniUtils.createNdFromByteBuffer(
+                this, buf, shape, dataType, SparseFormat.DENSE, device);
     }
 
     /** {@inheritDoc} */

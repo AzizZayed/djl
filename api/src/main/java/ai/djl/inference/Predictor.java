@@ -83,8 +83,8 @@ public class Predictor<I, O> implements AutoCloseable {
 
     private boolean prepared;
     private Model model;
-    private NDManager manager;
-    Metrics metrics;
+    protected NDManager manager;
+    protected Metrics metrics;
     protected Block block;
     protected ParameterStore parameterStore;
 
@@ -112,12 +112,20 @@ public class Predictor<I, O> implements AutoCloseable {
      * @return the output object defined by the user
      * @throws TranslateException if an error occurs during prediction
      */
-    @SuppressWarnings("PMD.AvoidRethrowingException")
     public O predict(I input) throws TranslateException {
         return batchPredict(Collections.singletonList(input)).get(0);
     }
 
-    private NDList predict(NDList ndList) {
+    /**
+     * Predicts an item for inference.
+     *
+     * @param ctx the context for the {@code Predictor}.
+     * @param ndList the input {@code NDList}
+     * @return the output {@code NDList}
+     * @throws TranslateException if an error occurs during prediction
+     */
+    protected NDList predictInternal(TranslatorContext ctx, NDList ndList)
+            throws TranslateException {
         logger.trace("Predictor input data: {}", ndList);
         return block.forward(parameterStore, ndList, false);
     }
@@ -146,7 +154,7 @@ public class Predictor<I, O> implements AutoCloseable {
                     NDList ndList = translator.processInput(context, input);
                     preprocessEnd(ndList);
 
-                    NDList result = predict(ndList);
+                    NDList result = predictInternal(context, ndList);
                     predictEnd(result);
 
                     ret.add(translator.processOutput(context, result));
@@ -159,7 +167,7 @@ public class Predictor<I, O> implements AutoCloseable {
             NDList inputBatch = processInputs(context, inputs);
             preprocessEnd(inputBatch);
 
-            NDList result = predict(inputBatch);
+            NDList result = predictInternal(context, inputBatch);
             predictEnd(result);
 
             List<O> ret = processOutputs(context, result);

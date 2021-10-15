@@ -42,8 +42,13 @@ public class XgbNDArray extends NDArrayAdapter {
         manager.attachInternal(uid, this);
     }
 
-    XgbNDArray(NDManager manager, NDManager alternativeManager, ByteBuffer data, Shape shape) {
-        super(manager, alternativeManager, shape, DataType.FLOAT32, UUID.randomUUID().toString());
+    XgbNDArray(
+            NDManager manager,
+            NDManager alternativeManager,
+            ByteBuffer data,
+            Shape shape,
+            DataType dataType) {
+        super(manager, alternativeManager, shape, dataType, UUID.randomUUID().toString());
         this.data = data;
         this.format = SparseFormat.DENSE;
         manager.attachInternal(uid, this);
@@ -51,6 +56,10 @@ public class XgbNDArray extends NDArrayAdapter {
 
     /** {@inheritDoc} */
     public long getHandle() {
+        if (handle == null) {
+            throw new UnsupportedOperationException(
+                    "XgbNDArray only support float32 and shape must be in two dimension.");
+        }
         return handle.get();
     }
 
@@ -66,7 +75,21 @@ public class XgbNDArray extends NDArrayAdapter {
         if (data == null) {
             throw new UnsupportedOperationException("Cannot obtain value from DMatrix");
         }
+        data.rewind();
         return data;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void intern(NDArray replaced) {
+        if (handle != null && handle.get() != 0L) {
+            long pointer = handle.getAndSet(0L);
+            JniUtils.deleteDMatrix(pointer);
+        }
+        XgbNDArray array = (XgbNDArray) replaced;
+        data = array.data;
+        handle = array.handle;
+        format = array.format;
     }
 
     /** {@inheritDoc} */

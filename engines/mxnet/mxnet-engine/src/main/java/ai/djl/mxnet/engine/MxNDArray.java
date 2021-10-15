@@ -29,6 +29,7 @@ import com.sun.jna.Pointer;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
@@ -243,8 +244,8 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
     public NDArray getGradient() {
         if (!hasGradient()) {
             throw new IllegalStateException(
-                    "No gradient attached to this NDArray, please call array.requiredGradient()"
-                            + "on your NDArray or block.setInitializer() on your Block");
+                    "No gradient attached to this NDArray, please call array.setRequiresGradient()"
+                            + " on your NDArray or block.setInitializer() on your Block");
         }
         Pointer pointer = JnaUtils.getGradient(getHandle());
         return manager.create(pointer);
@@ -269,7 +270,7 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
 
     /** {@inheritDoc} */
     @Override
-    public String[] toStringArray() {
+    public String[] toStringArray(Charset charset) {
         throw new UnsupportedOperationException("String NDArray is not supported!");
     }
 
@@ -293,17 +294,14 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
     @Override
     public void set(Buffer data) {
         int size = Math.toIntExact(size());
-        BaseNDManager.validateBufferSize(data, getDataType(), size);
+        DataType type = getDataType();
+        BaseNDManager.validateBufferSize(data, type, size);
         if (data.isDirect()) {
             JnaUtils.syncCopyFromCPU(getHandle(), data, size);
             return;
         }
 
-        // int8, uint8, boolean use ByteBuffer, so need to explicitly input DataType
-        DataType inputType = DataType.fromBuffer(data);
-        validate(inputType);
-
-        ByteBuffer buf = manager.allocateDirect(size * inputType.getNumOfBytes());
+        ByteBuffer buf = manager.allocateDirect(size * type.getNumOfBytes());
         BaseNDManager.copyBuffer(data, buf);
         JnaUtils.syncCopyFromCPU(getHandle(), buf, size);
     }
@@ -1514,17 +1512,6 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
 
     private int withAxis(int axis) {
         return Math.floorMod(axis, getShape().dimension());
-    }
-
-    private void validate(DataType inputType) {
-        if (getDataType() != inputType
-                && ((dataType != DataType.UINT8 && dataType != DataType.BOOLEAN)
-                        || inputType != DataType.INT8)) {
-            // Infer DataType from Buffer always return INT8, make this two special case that
-            // allows set UINT8 and BOOL array with regular ByteBuffer.
-            throw new IllegalStateException(
-                    "DataType mismatch, required: " + dataType + ", actual: " + inputType);
-        }
     }
 
     /** {@inheritDoc} */

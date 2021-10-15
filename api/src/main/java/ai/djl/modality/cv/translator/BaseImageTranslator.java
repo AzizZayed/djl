@@ -44,8 +44,9 @@ public abstract class BaseImageTranslator<T> implements Translator<Image, T> {
     private static final float[] MEAN = {0.485f, 0.456f, 0.406f};
     private static final float[] STD = {0.229f, 0.224f, 0.225f};
 
+    protected Pipeline pipeline;
+
     private Image.Flag flag;
-    private Pipeline pipeline;
     private Batchifier batchifier;
 
     /**
@@ -63,12 +64,6 @@ public abstract class BaseImageTranslator<T> implements Translator<Image, T> {
     @Override
     public Batchifier getBatchifier() {
         return batchifier;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Pipeline getPipeline() {
-        return pipeline;
     }
 
     /** {@inheritDoc} */
@@ -189,11 +184,22 @@ public abstract class BaseImageTranslator<T> implements Translator<Image, T> {
             if (arguments.containsKey("flag")) {
                 flag = Image.Flag.valueOf(arguments.get("flag").toString());
             }
-            if (getBooleanValue(arguments, "centerCrop", false)) {
-                addTransform(new CenterCrop());
-            }
-            if (getBooleanValue(arguments, "resize", false)) {
+            String resize = getStringValue(arguments, "resize", "false");
+            if ("true".equals(resize)) {
                 addTransform(new Resize(width, height));
+            } else if (!"false".equals(resize)) {
+                String[] tokens = resize.split("\\s*,\\s*");
+                if (tokens.length > 1) {
+                    addTransform(
+                            new Resize(
+                                    (int) Double.parseDouble(tokens[0]),
+                                    (int) Double.parseDouble(tokens[1])));
+                } else {
+                    addTransform(new Resize((int) Double.parseDouble(tokens[0])));
+                }
+            }
+            if (getBooleanValue(arguments, "centerCrop", false)) {
+                addTransform(new CenterCrop(width, height));
             }
             if (getBooleanValue(arguments, "toTensor", true)) {
                 addTransform(new ToTensor());

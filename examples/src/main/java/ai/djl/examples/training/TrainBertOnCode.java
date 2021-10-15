@@ -58,7 +58,7 @@ public final class TrainBertOnCode {
         dataset.prepare();
 
         // Create model & trainer
-        try (Model model = createBertPretrainingModel(dataset.getDictionarySize())) {
+        try (Model model = createBertPretrainingModel(dataset.getVocabularySize())) {
 
             TrainingConfig config = createTrainingConfig(arguments);
             try (Trainer trainer = model.newTrainer(config)) {
@@ -73,10 +73,12 @@ public final class TrainBertOnCode {
         }
     }
 
-    private static Model createBertPretrainingModel(int dictionarySize) {
+    private static Model createBertPretrainingModel(long vocabularySize) {
         Block block =
                 new BertPretrainingBlock(
-                        BertBlock.builder().micro().setTokenDictionarySize(dictionarySize));
+                        BertBlock.builder()
+                                .micro()
+                                .setTokenDictionarySize(Math.toIntExact(vocabularySize)));
         block.setInitializer(new TruncatedNormalInitializer(0.02f), Parameter.Type.WEIGHT);
 
         Model model = Model.newInstance("Bert Pretraining");

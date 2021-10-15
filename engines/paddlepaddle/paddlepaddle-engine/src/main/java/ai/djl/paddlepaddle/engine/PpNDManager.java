@@ -69,10 +69,10 @@ public class PpNDManager extends BaseNDManager {
     /** {@inheritDoc} */
     @Override
     public PpNDArray from(NDArray array) {
-        if (array instanceof PpNDArray) {
+        if (array == null || array instanceof PpNDArray) {
             return (PpNDArray) array;
         }
-        return createDirect(array.toByteBuffer(), array.getShape(), array.getDataType());
+        return create(array.toByteBuffer(), array.getShape(), array.getDataType());
     }
 
     /**
@@ -90,7 +90,7 @@ public class PpNDManager extends BaseNDManager {
 
     /** {@inheritDoc} */
     @Override
-    public PpNDArray createDirect(Buffer data, Shape shape, DataType dataType) {
+    public PpNDArray create(Buffer data, Shape shape, DataType dataType) {
         int size = Math.toIntExact(shape.size());
         BaseNDManager.validateBufferSize(data, dataType, size);
         if (data.isDirect() && data instanceof ByteBuffer) {
@@ -99,15 +99,6 @@ public class PpNDManager extends BaseNDManager {
         ByteBuffer buf = allocateDirect(size * dataType.getNumOfBytes());
         copyBuffer(data, buf);
         return JniUtils.createNdArray(this, buf, shape, dataType);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public NDArray create(Buffer data, Shape shape, DataType dataType) {
-        if (alternativeManager != null) {
-            return alternativeManager.create(data, shape, dataType);
-        }
-        return createDirect(data, shape, dataType);
     }
 
     /** {@inheritDoc} */

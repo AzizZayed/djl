@@ -13,12 +13,15 @@
 package ai.djl.ndarray;
 
 import ai.djl.Device;
+import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.internal.NDArrayEx;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import java.nio.Buffer;
+import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.function.Function;
 
 /**
  * A base implementation of the {@link NDArray} that does nothing. This can be used for overriding
@@ -165,14 +168,51 @@ public abstract class NDArrayAdapter implements NDArray {
 
     /** {@inheritDoc} */
     @Override
-    public String[] toStringArray() {
+    public String[] toStringArray(Charset charset) {
         throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
 
     /** {@inheritDoc} */
     @Override
     public void set(Buffer data) {
-        throw new UnsupportedOperationException(UNSUPPORTED_MSG);
+        NDArray array = manager.create(data, getShape(), getDataType());
+        intern(array);
+        array.detach();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void set(NDIndex index, NDArray value) {
+        getAlternativeArray().set(index, value);
+        set(alternativeArray.toByteBuffer());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void set(NDIndex index, Number value) {
+        getAlternativeArray().set(index, value);
+        set(alternativeArray.toByteBuffer());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void set(NDIndex index, Function<NDArray, NDArray> function) {
+        getAlternativeArray().set(index, function);
+        set(alternativeArray.toByteBuffer());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void set(NDArray index, Number value) {
+        getAlternativeArray().set(index, value);
+        set(alternativeArray.toByteBuffer());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setScalar(NDIndex index, Number value) {
+        getAlternativeArray().setScalar(index, value);
+        set(alternativeArray.toByteBuffer());
     }
 
     /** {@inheritDoc} */
@@ -705,6 +745,12 @@ public abstract class NDArrayAdapter implements NDArray {
 
     /** {@inheritDoc} */
     @Override
+    public NDList split(long sections, int axis) {
+        return getAlternativeArray().split(sections, axis);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public NDList split(long[] indices, int axis) {
         return getAlternativeArray().split(indices, axis);
     }
@@ -797,12 +843,6 @@ public abstract class NDArrayAdapter implements NDArray {
     @Override
     public NDArray cumSum(int axis) {
         return getAlternativeArray().cumSum(axis);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void intern(NDArray replaced) {
-        throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
 
     /** {@inheritDoc} */
@@ -1037,8 +1077,9 @@ public abstract class NDArrayAdapter implements NDArray {
         }
         if (alternativeArray == null) {
             alternativeArray = alternativeManager.from(this);
+        } else {
+            alternativeArray.set(getDataType().asDataType(toByteBuffer()));
         }
-        alternativeArray.set(getDataType().asDataType(toByteBuffer()));
         return alternativeArray;
     }
 }

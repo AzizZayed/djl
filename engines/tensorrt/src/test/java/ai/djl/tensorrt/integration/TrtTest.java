@@ -29,6 +29,7 @@ import ai.djl.translate.Batchifier;
 import ai.djl.translate.TranslateException;
 import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
+import ai.djl.util.cuda.CudaUtils;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.file.Path;
@@ -50,7 +51,7 @@ public class TrtTest {
         } catch (Exception ignore) {
             throw new SkipException("Your os configuration doesn't support TensorRT.");
         }
-        if (!Device.Type.GPU.equals(engine.defaultDevice().getDeviceType())) {
+        if (!engine.defaultDevice().isGpu()) {
             throw new SkipException("TensorRT only support GPU.");
         }
         Criteria<float[], float[]> criteria =
@@ -76,7 +77,7 @@ public class TrtTest {
         } catch (Exception ignore) {
             throw new SkipException("Your os configuration doesn't support TensorRT.");
         }
-        if (!Device.Type.GPU.equals(engine.defaultDevice().getDeviceType())) {
+        if (!engine.defaultDevice().isGpu()) {
             throw new SkipException("TensorRT only support GPU.");
         }
         List<String> synset =
@@ -102,6 +103,34 @@ public class TrtTest {
             Image image = ImageFactory.getInstance().fromFile(path);
             Classifications ret = predictor.predict(image);
             Assert.assertEquals(ret.best().getClassName(), "0");
+        }
+    }
+
+    @Test
+    public void testSerializedEngine() throws ModelException, IOException, TranslateException {
+        Engine engine;
+        try {
+            engine = Engine.getEngine("TensorRT");
+        } catch (Exception ignore) {
+            throw new SkipException("Your os configuration doesn't support TensorRT.");
+        }
+        Device device = engine.defaultDevice();
+        if (!device.isGpu()) {
+            throw new SkipException("TensorRT only support GPU.");
+        }
+        String sm = CudaUtils.getComputeCapability(device.getDeviceId());
+        Criteria<float[], float[]> criteria =
+                Criteria.builder()
+                        .setTypes(float[].class, float[].class)
+                        .optModelPath(Paths.get("src/test/resources/identity_" + sm + ".trt"))
+                        .optTranslator(new MyTranslator())
+                        .optEngine("TensorRT")
+                        .build();
+        try (ZooModel<float[], float[]> model = criteria.loadModel();
+                Predictor<float[], float[]> predictor = model.newPredictor()) {
+            float[] data = new float[] {1, 2, 3, 4};
+            float[] ret = predictor.predict(data);
+            Assert.assertEquals(ret, data);
         }
     }
 
