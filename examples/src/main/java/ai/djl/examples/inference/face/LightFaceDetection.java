@@ -13,7 +13,6 @@
 package ai.djl.examples.inference.face;
 
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
@@ -43,11 +42,6 @@ public final class LightFaceDetection {
     private LightFaceDetection() {}
 
     public static void main(String[] args) throws IOException, ModelException, TranslateException {
-        if (!"PyTorch".equals(Engine.getInstance().getEngineName())) {
-            logger.info("This example only works for PyTorch.");
-            return;
-        }
-
         DetectedObjects detection = LightFaceDetection.predict();
         logger.info("{}", detection);
     }
@@ -89,12 +83,10 @@ public final class LightFaceDetection {
         Path outputDir = Paths.get("build/output");
         Files.createDirectories(outputDir);
 
-        // Make image copy with alpha channel because original image was jpg
-        Image newImage = img.duplicate(Image.Type.TYPE_INT_ARGB);
-        newImage.drawBoundingBoxes(detection);
+        img.drawBoundingBoxes(detection);
 
         Path imagePath = outputDir.resolve("ultranet_detected.png");
-        newImage.save(Files.newOutputStream(imagePath), "png");
+        img.save(Files.newOutputStream(imagePath), "png");
         logger.info("Face detection result image has been saved in: {}", imagePath);
     }
 }

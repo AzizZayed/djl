@@ -14,7 +14,6 @@ package ai.djl.examples.inference;
 
 import ai.djl.Application;
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
@@ -28,9 +27,8 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
-import ai.djl.translate.Batchifier;
+import ai.djl.translate.NoBatchifyTranslator;
 import ai.djl.translate.TranslateException;
-import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
 import ai.djl.util.JsonUtils;
 import com.google.gson.annotations.SerializedName;
@@ -71,18 +69,10 @@ public final class ObjectDetectionWithTensorflowSavedModel {
 
     public static void main(String[] args) throws IOException, ModelException, TranslateException {
         DetectedObjects detection = ObjectDetectionWithTensorflowSavedModel.predict();
-        if (detection == null) {
-            logger.info("This example only works for TensorFlow Engine");
-        } else {
-            logger.info("{}", detection);
-        }
+        logger.info("{}", detection);
     }
 
     public static DetectedObjects predict() throws IOException, ModelException, TranslateException {
-        if (!"TensorFlow".equals(Engine.getInstance().getEngineName())) {
-            return null;
-        }
-
         Path imageFile = Paths.get("src/test/resources/dog_bike_car.jpg");
         Image img = ImageFactory.getInstance().fromFile(imageFile);
 
@@ -97,6 +87,7 @@ public final class ObjectDetectionWithTensorflowSavedModel {
                         // saved_model.pb file is in the subfolder of the model archive file
                         .optModelName("ssd_mobilenet_v2_320x320_coco17_tpu-8/saved_model")
                         .optTranslator(new MyTranslator())
+                        .optEngine("TensorFlow")
                         .optProgress(new ProgressBar())
                         .build();
 
@@ -113,13 +104,11 @@ public final class ObjectDetectionWithTensorflowSavedModel {
         Path outputDir = Paths.get("build/output");
         Files.createDirectories(outputDir);
 
-        // Make image copy with alpha channel because original image was jpg
-        Image newImage = img.duplicate(Image.Type.TYPE_INT_ARGB);
-        newImage.drawBoundingBoxes(detection);
+        img.drawBoundingBoxes(detection);
 
         Path imagePath = outputDir.resolve("detected-tensorflow-model-dog_bike_car.png");
         // OpenJDK can't save jpg with alpha channel
-        newImage.save(Files.newOutputStream(imagePath), "png");
+        img.save(Files.newOutputStream(imagePath), "png");
         logger.info("Detected objects image has been saved in: {}", imagePath);
     }
 
@@ -152,7 +141,8 @@ public final class ObjectDetectionWithTensorflowSavedModel {
         String displayName;
     }
 
-    private static final class MyTranslator implements Translator<Image, DetectedObjects> {
+    private static final class MyTranslator
+            implements NoBatchifyTranslator<Image, DetectedObjects> {
 
         private Map<Integer, String> classes;
         private int maxBoxes;
@@ -231,12 +221,6 @@ public final class ObjectDetectionWithTensorflowSavedModel {
             }
 
             return new DetectedObjects(retNames, retProbs, retBB);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Batchifier getBatchifier() {
-            return null;
         }
     }
 }

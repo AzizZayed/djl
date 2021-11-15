@@ -13,6 +13,7 @@
 package ai.djl.tensorrt.engine;
 
 import ai.djl.BaseModel;
+import ai.djl.Device;
 import ai.djl.Model;
 import ai.djl.inference.Predictor;
 import ai.djl.ndarray.types.DataType;
@@ -48,10 +49,10 @@ public class TrtModel extends BaseModel {
     /** {@inheritDoc} */
     @Override
     public void load(Path modelPath, String prefix, Map<String, ?> options) throws IOException {
+        setModelDir(modelPath);
         if (block != null) {
             throw new UnsupportedOperationException("TensorRT does not support dynamic blocks");
         }
-        modelDir = modelPath.toAbsolutePath();
         if (prefix == null) {
             prefix = modelName;
         }
@@ -78,10 +79,11 @@ public class TrtModel extends BaseModel {
 
     /** {@inheritDoc} */
     @Override
-    public <I, O> Predictor<I, O> newPredictor(Translator<I, O> translator) {
+    public <I, O> Predictor<I, O> newPredictor(Translator<I, O> translator, Device device) {
         TrtSymbolBlock trtSymbol = ((TrtSymbolBlock) block);
-        TrtSession session = trtSymbol.createSession((TrtNDManager) manager);
-        return new TrtPredictor<>(this, translator, session);
+        TrtNDManager predManager = ((TrtNDManager) manager).newSubManager(device);
+        TrtSession session = trtSymbol.createSession(predManager);
+        return new TrtPredictor<>(this, translator, device, session);
     }
 
     private Path findModelFile(String prefix) {

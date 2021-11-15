@@ -15,7 +15,6 @@ package ai.djl.examples.inference;
 import ai.djl.Application;
 import ai.djl.MalformedModelException;
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
@@ -51,22 +50,13 @@ public final class StyleTransfer {
         Image input = ImageFactory.getInstance().fromFile(Paths.get(imagePath));
         Image output = transfer(input, artist);
 
-        if (output == null) {
-            logger.info("This example only works for PyTorch Engine");
-        } else {
-            logger.info("Using PyTorch Engine. " + artist + " painting generated.");
-            save(output, artist.toString(), "build/output/cyclegan/");
-        }
+        logger.info("Using PyTorch Engine. " + artist + " painting generated.");
+        save(output, artist.toString(), "build/output/cyclegan/");
     }
 
     public static Image transfer(Image image, Artist artist)
             throws IOException, ModelNotFoundException, MalformedModelException,
                     TranslateException {
-
-        if (!"PyTorch".equals(Engine.getInstance().getEngineName())) {
-            return null;
-        }
-
         String modelName = "style_" + artist.toString().toLowerCase() + ".zip";
         String modelUrl =
                 "https://mlrepo.djl.ai/model/cv/image_generation/ai/djl/pytorch/cyclegan/0.0.1/"
@@ -79,6 +69,7 @@ public final class StyleTransfer {
                         .optModelUrls(modelUrl)
                         .optProgress(new ProgressBar())
                         .optTranslatorFactory(new StyleTransferTranslatorFactory())
+                        .optEngine("PyTorch")
                         .build();
 
         try (ZooModel<Image, Image> model = criteria.loadModel();

@@ -13,7 +13,6 @@
 package ai.djl.examples.inference.face;
 
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
@@ -24,7 +23,6 @@ import ai.djl.ndarray.NDList;
 import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
-import ai.djl.translate.Batchifier;
 import ai.djl.translate.Pipeline;
 import ai.djl.translate.TranslateException;
 import ai.djl.translate.Translator;
@@ -43,11 +41,6 @@ public final class FeatureExtraction {
     private FeatureExtraction() {}
 
     public static void main(String[] args) throws IOException, ModelException, TranslateException {
-        if (!"PyTorch".equals(Engine.getInstance().getEngineName())) {
-            logger.info("This example only works for PyTorch.");
-            return;
-        }
-
         Path imageFile = Paths.get("src/test/resources/kana1.jpg");
         Image img = ImageFactory.getInstance().fromFile(imageFile);
 
@@ -114,12 +107,6 @@ public final class FeatureExtraction {
                 feature[i] = embeddings[i][0];
             }
             return feature;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Batchifier getBatchifier() {
-            return Batchifier.STACK;
         }
     }
 }

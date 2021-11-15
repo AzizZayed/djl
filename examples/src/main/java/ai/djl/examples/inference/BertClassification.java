@@ -14,7 +14,6 @@ package ai.djl.examples.inference;
 
 import ai.djl.MalformedModelException;
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.Classifications;
 import ai.djl.modality.nlp.DefaultVocabulary;
@@ -27,9 +26,8 @@ import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ModelNotFoundException;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
-import ai.djl.translate.Batchifier;
+import ai.djl.translate.NoBatchifyTranslator;
 import ai.djl.translate.TranslateException;
-import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -58,21 +56,14 @@ public final class BertClassification {
         inputs.add("class3\tDJL is good");
 
         Classifications[] results = predict(inputs);
-        if (results == null) {
-            logger.info("This example only works for TensorFlow Engine");
-        } else {
-            for (int i = 0; i < inputs.size(); i++) {
-                logger.info("Prediction for: " + inputs.get(i) + "\n" + results[i].toString());
-            }
+        for (int i = 0; i < inputs.size(); i++) {
+            logger.info("Prediction for: " + inputs.get(i) + "\n" + results[i].toString());
         }
     }
 
     public static Classifications[] predict(List<String> inputs)
             throws MalformedModelException, ModelNotFoundException, IOException,
                     TranslateException {
-        if (!"TensorFlow".equals(Engine.getInstance().getEngineName())) {
-            return null;
-        }
         // refer to
         // https://medium.com/delvify/bert-rest-inference-from-the-fine-tuned-model-499997b32851 and
         // https://github.com/google-research/bert
@@ -85,6 +76,7 @@ public final class BertClassification {
                         .setTypes(String[].class, Classifications[].class)
                         .optModelUrls(modelUrl)
                         .optTranslator(new MyTranslator(vocabularyPath, 128))
+                        .optEngine("TensorFlow")
                         .optProgress(new ProgressBar())
                         .build();
 
@@ -94,7 +86,8 @@ public final class BertClassification {
         }
     }
 
-    private static final class MyTranslator implements Translator<String[], Classifications[]> {
+    private static final class MyTranslator
+            implements NoBatchifyTranslator<String[], Classifications[]> {
         private final List<String> classes =
                 Arrays.asList("class1", "class2", "class3", "class4", "class5");
         private BertFullTokenizer tokenizer;
@@ -104,12 +97,6 @@ public final class BertClassification {
         MyTranslator(String vocabularyPath, int maxSequenceLength) {
             this.maxSequenceLength = maxSequenceLength;
             this.vocabularyPath = vocabularyPath;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Batchifier getBatchifier() {
-            return null;
         }
 
         /** {@inheritDoc} */

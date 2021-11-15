@@ -48,16 +48,16 @@ sudo snap alias djlbench djl-bench
 - Or download .deb package from S3
 
 ```
-curl -O https://publish.djl.ai/djl-bench/0.13.0/djl-bench_0.13.0-1_all.deb
+curl -O https://publish.djl.ai/djl-bench/0.14.0/djl-bench_0.13.0-1_all.deb
 sudo dpkg -i djl-bench_0.13.0-1_all.deb
 ```
 
 For centOS or Amazon Linux 2
 
-You can download djl-bench zip file from [here](https://publish.djl.ai/djl-bench/0.13.0/benchmark-0.13.0.zip).
+You can download djl-bench zip file from [here](https://publish.djl.ai/djl-bench/0.14.0/benchmark-0.13.0.zip).
 
 ```
-curl -O https://publish.djl.ai/djl-bench/0.13.0/benchmark-0.13.0.zip
+curl -O https://publish.djl.ai/djl-bench/0.14.0/benchmark-0.13.0.zip
 unzip benchmark-0.13.0.zip
 rm benchmark-0.13.0.zip
 sudo ln -s $PWD/benchmark-0.13.0/bin/benchmark /usr/bin/djl-bench
@@ -66,7 +66,7 @@ sudo ln -s $PWD/benchmark-0.13.0/bin/benchmark /usr/bin/djl-bench
 For Windows
 
 We are considering to create a `chocolatey` package for Windows. For the time being, you can
-download djl-bench zip file from [here](https://publish.djl.ai/djl-bench/0.13.0/benchmark-0.13.0.zip).
+download djl-bench zip file from [here](https://publish.djl.ai/djl-bench/0.14.0/benchmark-0.13.0.zip).
 
 Or you can run benchmark using gradle:
 
@@ -168,6 +168,8 @@ usage: djl-bench [-p MODEL-PATH] -s INPUT-SHAPES [OPTIONS]
     --model-arguments <MODEL-ARGUMENTS>   Specify model loading arguments.
     --model-options <MODEL-OPTIONS>       Specify model loading options.
  -n,--model-name <MODEL-NAME>             Specify model file name.
+    --neuron-cores <NEURON-CORES>         Number of neuron cores to run multithreading inference, See
+                                          https://awsdocs-neuron.readthedocs-hosted.com.
  -o,--output-dir <OUTPUT-DIR>             Directory for output logs.
  -p,--model-path <MODEL-PATH>             Model directory file path.
  -s,--input-shapes <INPUT-SHAPES>         Input data shapes for the model.

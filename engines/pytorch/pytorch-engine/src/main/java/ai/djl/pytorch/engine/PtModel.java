@@ -60,7 +60,7 @@ public class PtModel extends BaseModel {
     @Override
     public void load(Path modelPath, String prefix, Map<String, ?> options)
             throws IOException, MalformedModelException {
-        modelDir = modelPath.toAbsolutePath();
+        setModelDir(modelPath);
         if (prefix == null) {
             prefix = modelName;
         }
@@ -76,16 +76,20 @@ public class PtModel extends BaseModel {
             }
             String[] extraFileKeys = new String[0];
             String[] extraFileValues = new String[0];
+            boolean mapLocation = false;
             // load jit extra files
-            if (options != null && options.containsKey("extraFiles")) {
-                extraFileKeys = ((String) options.get("extraFiles")).split(",");
-                extraFileValues = new String[extraFileKeys.length];
+            if (options != null) {
+                if (options.containsKey("extraFiles")) {
+                    extraFileKeys = ((String) options.get("extraFiles")).split(",");
+                    extraFileValues = new String[extraFileKeys.length];
+                }
+                mapLocation = Boolean.parseBoolean((String) options.get("mapLocation"));
             }
             block =
                     JniUtils.loadModule(
                             (PtNDManager) manager,
                             modelFile,
-                            manager.getDevice(),
+                            mapLocation,
                             extraFileKeys,
                             extraFileValues);
             for (int i = 0; i < extraFileKeys.length; i++) {
@@ -113,7 +117,18 @@ public class PtModel extends BaseModel {
      * @throws IOException model loading error
      */
     public void load(InputStream modelStream) throws IOException {
-        block = JniUtils.loadModule((PtNDManager) manager, modelStream, manager.getDevice(), false);
+        load(modelStream, true);
+    }
+
+    /**
+     * Load PyTorch model from {@link InputStream}.
+     *
+     * @param modelStream the stream of the model file
+     * @param mapLocation force load to specified device if true
+     * @throws IOException model loading error
+     */
+    public void load(InputStream modelStream, boolean mapLocation) throws IOException {
+        block = JniUtils.loadModule((PtNDManager) manager, modelStream, mapLocation, false);
     }
 
     private Path findModelFile(String prefix) {

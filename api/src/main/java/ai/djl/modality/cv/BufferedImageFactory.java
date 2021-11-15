@@ -31,10 +31,10 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
@@ -57,16 +57,6 @@ public class BufferedImageFactory extends ImageFactory {
         BufferedImage image = ImageIO.read(path.toFile());
         if (image == null) {
             throw new IOException("Failed to read image from: " + path);
-        }
-        return new BufferedImageWrapper(image);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Image fromUrl(URL url) throws IOException {
-        BufferedImage image = ImageIO.read(url);
-        if (image == null) {
-            throw new IOException("Failed to read image from: " + url);
         }
         return new BufferedImageWrapper(image);
     }
@@ -108,7 +98,6 @@ public class BufferedImageFactory extends ImageFactory {
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             int[] raw = array.toUint8Array();
             IntStream.range(0, imageArea)
-                    .parallel()
                     .forEach(
                             ele -> {
                                 int x = ele % width;
@@ -127,7 +116,6 @@ public class BufferedImageFactory extends ImageFactory {
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             int[] raw = array.toUint8Array();
             IntStream.range(0, imageArea)
-                    .parallel()
                     .forEach(
                             ele -> {
                                 int x = ele % width;
@@ -148,7 +136,7 @@ public class BufferedImageFactory extends ImageFactory {
 
     private class BufferedImageWrapper implements Image {
 
-        private final BufferedImage image;
+        private BufferedImage image;
 
         BufferedImageWrapper(BufferedImage image) {
             this.image = image;
@@ -174,19 +162,33 @@ public class BufferedImageFactory extends ImageFactory {
 
         /** {@inheritDoc} */
         @Override
-        public Image getSubimage(int x, int y, int w, int h) {
+        public Image getSubImage(int x, int y, int w, int h) {
             return new BufferedImageWrapper(image.getSubimage(x, y, w, h));
         }
 
         /** {@inheritDoc} */
         @Override
-        public Image duplicate(Type type) {
+        public Image duplicate() {
+            BufferedImage copy =
+                    new BufferedImage(image.getWidth(), image.getHeight(), image.getType());
+            byte[] sourceData = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+            byte[] biData = ((DataBufferByte) copy.getRaster().getDataBuffer()).getData();
+            System.arraycopy(sourceData, 0, biData, 0, sourceData.length);
+            return new BufferedImageWrapper(copy);
+        }
+
+        private void convertIdNeeded() {
+            if (image.getType() == BufferedImage.TYPE_INT_ARGB) {
+                return;
+            }
+
             BufferedImage newImage =
-                    new BufferedImage(image.getWidth(), image.getHeight(), getType(type));
+                    new BufferedImage(
+                            image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = newImage.createGraphics();
             g.drawImage(image, 0, 0, null);
             g.dispose();
-            return new BufferedImageWrapper(newImage);
+            image = newImage;
         }
 
         /** {@inheritDoc} */
@@ -244,6 +246,9 @@ public class BufferedImageFactory extends ImageFactory {
         /** {@inheritDoc} */
         @Override
         public void drawBoundingBoxes(DetectedObjects detections) {
+            // Make image copy with alpha channel because original image was jpg
+            convertIdNeeded();
+
             Graphics2D g = (Graphics2D) image.getGraphics();
             int stroke = 2;
             g.setStroke(new BasicStroke(stroke));
@@ -269,10 +274,9 @@ public class BufferedImageFactory extends ImageFactory {
                 drawText(g, className, x, y, stroke, 4);
                 // If we have a mask instead of a plain rectangle, draw tha mask
                 if (box instanceof Mask) {
-                    Mask mask = (Mask) box;
-                    drawMask(image, mask);
+                    drawMask((Mask) box);
                 } else if (box instanceof Landmark) {
-                    drawLandmarks(image, box);
+                    drawLandmarks(box);
                 }
             }
             g.dispose();
@@ -281,6 +285,9 @@ public class BufferedImageFactory extends ImageFactory {
         /** {@inheritDoc} */
         @Override
         public void drawJoints(Joints joints) {
+            // Make image copy with alpha channel because original image was jpg
+            convertIdNeeded();
+
             Graphics2D g = (Graphics2D) image.getGraphics();
             int stroke = 2;
             g.setStroke(new BasicStroke(stroke));
@@ -295,13 +302,6 @@ public class BufferedImageFactory extends ImageFactory {
                 g.fillOval(x, y, 10, 10);
             }
             g.dispose();
-        }
-
-        private int getType(Type type) {
-            if (type == Type.TYPE_INT_ARGB) {
-                return BufferedImage.TYPE_INT_ARGB;
-            }
-            throw new IllegalArgumentException("the type is not supported!");
         }
 
         private Color randomColor() {
@@ -321,7 +321,7 @@ public class BufferedImageFactory extends ImageFactory {
             g.drawString(text, x + padding, y + ascent);
         }
 
-        private void drawMask(BufferedImage image, Mask mask) {
+        private void drawMask(Mask mask) {
             float r = RandomUtils.nextFloat();
             float g = RandomUtils.nextFloat();
             float b = RandomUtils.nextFloat();
@@ -343,13 +343,7 @@ public class BufferedImageFactory extends ImageFactory {
                             probDist.length, probDist[0].length, BufferedImage.TYPE_INT_ARGB);
             for (int xCor = 0; xCor < probDist.length; xCor++) {
                 for (int yCor = 0; yCor < probDist[xCor].length; yCor++) {
-                    float opacity = probDist[xCor][yCor];
-                    if (opacity < 0.1) {
-                        opacity = 0f;
-                    }
-                    if (opacity > 0.8) {
-                        opacity = 0.8f;
-                    }
+                    float opacity = probDist[xCor][yCor] * 0.8f;
                     maskImage.setRGB(xCor, yCor, new Color(r, g, b, opacity).darker().getRGB());
                 }
             }
@@ -358,7 +352,7 @@ public class BufferedImageFactory extends ImageFactory {
             gR.dispose();
         }
 
-        private void drawLandmarks(BufferedImage image, BoundingBox box) {
+        private void drawLandmarks(BoundingBox box) {
             Graphics2D g = (Graphics2D) image.getGraphics();
             g.setColor(new Color(246, 96, 0));
             BasicStroke bStroke = new BasicStroke(4, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER);

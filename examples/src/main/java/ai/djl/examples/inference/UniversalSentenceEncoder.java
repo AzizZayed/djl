@@ -15,7 +15,6 @@ package ai.djl.examples.inference;
 import ai.djl.Application;
 import ai.djl.MalformedModelException;
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
@@ -25,9 +24,8 @@ import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ModelNotFoundException;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
-import ai.djl.translate.Batchifier;
+import ai.djl.translate.NoBatchifyTranslator;
 import ai.djl.translate.TranslateException;
-import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,23 +52,14 @@ public final class UniversalSentenceEncoder {
         inputs.add("I am a sentence for which I would like to get its embedding");
 
         float[][] embeddings = UniversalSentenceEncoder.predict(inputs);
-        if (embeddings == null) {
-            logger.info("This example only works for TensorFlow Engine");
-        } else {
-            for (int i = 0; i < inputs.size(); i++) {
-                logger.info(
-                        "Embedding for: " + inputs.get(i) + "\n" + Arrays.toString(embeddings[i]));
-            }
+        for (int i = 0; i < inputs.size(); i++) {
+            logger.info("Embedding for: " + inputs.get(i) + "\n" + Arrays.toString(embeddings[i]));
         }
     }
 
     public static float[][] predict(List<String> inputs)
             throws MalformedModelException, ModelNotFoundException, IOException,
                     TranslateException {
-        if (!"TensorFlow".equals(Engine.getInstance().getEngineName())) {
-            return null;
-        }
-
         String modelUrl =
                 "https://storage.googleapis.com/tfhub-modules/google/universal-sentence-encoder/4.tar.gz";
 
@@ -80,6 +69,7 @@ public final class UniversalSentenceEncoder {
                         .setTypes(String[].class, float[][].class)
                         .optModelUrls(modelUrl)
                         .optTranslator(new MyTranslator())
+                        .optEngine("TensorFlow")
                         .optProgress(new ProgressBar())
                         .build();
         try (ZooModel<String[], float[][]> model = criteria.loadModel();
@@ -88,7 +78,7 @@ public final class UniversalSentenceEncoder {
         }
     }
 
-    private static final class MyTranslator implements Translator<String[], float[][]> {
+    private static final class MyTranslator implements NoBatchifyTranslator<String[], float[][]> {
 
         MyTranslator() {}
 
@@ -112,11 +102,6 @@ public final class UniversalSentenceEncoder {
                 result.add(list.singletonOrThrow().get(i));
             }
             return result.stream().map(NDArray::toFloatArray).toArray(float[][]::new);
-        }
-
-        @Override
-        public Batchifier getBatchifier() {
-            return null;
         }
     }
 }

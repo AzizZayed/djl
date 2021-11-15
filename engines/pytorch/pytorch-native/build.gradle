@@ -6,22 +6,26 @@ plugins {
 group = "ai.djl.pytorch"
 apply from: file("${rootProject.projectDir}/tools/gradle/cpp-formatter.gradle")
 
-def VERSION = "${pytorch_version}"
+String VERSION = "${pytorch_version}"
+if (project.hasProperty("pt_version") && project.property("pt_version") != "") {
+    VERSION = project.property("pt_version")
+}
 boolean isRelease = project.hasProperty("release") || project.hasProperty("staging")
 boolean isPrecxx11 = project.hasProperty("precxx11")
 boolean isGPU = project.hasProperty("gpu")
-version = VERSION + (isRelease ? "" : "-SNAPSHOT")
-def BINARY_ROOT = "${project.buildDir}/download"
+String BINARY_ROOT = "${project.buildDir}/download"
 
-def downloadBuild(String os, String flavor, Boolean isPrecxx11 = false) {
+version = VERSION + (isRelease ? "" : "-SNAPSHOT")
+
+def downloadBuild(String ver, String os, String flavor, Boolean isPrecxx11 = false) {
     exec {
         if (os == "win") {
-            commandLine "${project.projectDir}/build.cmd", "${flavor}"
+            commandLine "${project.projectDir}/build.cmd", "${ver}", "${flavor}"
         } else {
             if (isPrecxx11) {
-                commandLine 'bash', 'build.sh', "${flavor}", "precxx11"
+                commandLine 'bash', 'build.sh', "${ver}", "${flavor}", "precxx11"
             } else {
-                commandLine 'bash', 'build.sh', "${flavor}"
+                commandLine 'bash', 'build.sh', "${ver}", "${flavor}"
             }
         }
     }
@@ -30,8 +34,8 @@ def downloadBuild(String os, String flavor, Boolean isPrecxx11 = false) {
     // the reason why we duplicate the folder here is to insert djl_version into the path
     // so different versions of JNI wouldn't override each other. We don't also want publishDir
     // to have djl_version as engine would require to know that during the System.load()
-    def classifier = "${os}-x86_64"
-    def ciDir = "${project.projectDir}/jnilib/${djl_version}/${classifier}/${flavor}"
+    String classifier = "${os}-x86_64"
+    String ciDir = "${project.projectDir}/jnilib/${djl_version}/${classifier}/${flavor}"
     copy {
         def tree = fileTree(project.buildDir)
         tree.include("**/libdjl_torch.*", "**/djl_torch.dll")
@@ -40,19 +44,72 @@ def downloadBuild(String os, String flavor, Boolean isPrecxx11 = false) {
     }
 }
 
-def downloadBuildAndroid() {
+def downloadBuildAndroid(String ver) {
     def LIST_ABI = ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
     LIST_ABI.each {
         abi ->
             exec {
-                commandLine 'bash', 'build_android.sh', "${abi}"
+                commandLine 'bash', 'build_android.sh', "${ver}", "${abi}"
             }
-            def ciDir = "${project.projectDir}/jnilib/${djl_version}/android/${abi}"
+            String ciDir = "${project.projectDir}/jnilib/${djl_version}/android/${abi}"
             copy {
                 from "${project.buildDir}/libdjl_torch.so"
                 into ciDir
             }
             cleanBuild()
+    }
+}
+
+def prepareNativeLib(String binaryRoot, String ver, boolean precxx11, boolean publish) {
+    def url = "https://download.pytorch.org/libtorch"
+    def files = [
+            "cpu/libtorch-cxx11-abi-shared-with-deps-${ver}%2Bcpu.zip"    : "cpu/linux",
+            "cpu/libtorch-macos-${ver}.zip"                               : "cpu/osx",
+            "cpu/libtorch-win-shared-with-deps-${ver}%2Bcpu.zip"          : "cpu/win",
+            "cu102/libtorch-cxx11-abi-shared-with-deps-${ver}%2Bcu102.zip": "cu102/linux",
+            "cu111/libtorch-cxx11-abi-shared-with-deps-${ver}%2Bcu111.zip": "cu111/linux",
+            "cu102/libtorch-win-shared-with-deps-${ver}%2Bcu102.zip"      : "cu102/win",
+            "cu111/libtorch-win-shared-with-deps-${ver}%2Bcu111.zip"      : "cu111/win"
+    ]
+    if (precxx11) {
+        // precxx11 only support cpu for now
+        def local_dir = publish ? "cpu" : "cpu-precxx11"
+        files = [
+                "cpu/libtorch-shared-with-deps-${ver}%2Bcpu.zip": local_dir + "/linux",
+        ]
+    }
+    files.each { entry ->
+        project.logger.lifecycle("Downloading ${url}/${entry.key}")
+        def outputDir = new File("${binaryRoot}/${entry.value}")
+        def file = new File("${outputDir}/libtorch.zip")
+        file.getParentFile().mkdirs()
+        new URL("${url}/${entry.key}").withInputStream { i -> file.withOutputStream { it << i } }
+        copy {
+            from zipTree(file)
+            into outputDir
+        }
+        // CPU dependencies
+        copy {
+            from("${outputDir}/libtorch/lib/") {
+                include "libc10.*", "c10.dll", "libiomp5*.*", "libgomp*.*", "libtorch.*", "libtorch_cpu.*", "torch.dll", "torch_cpu.dll", "fbgemm.dll", "asmjit.dll"
+            }
+            into("${outputDir}/native/lib")
+        }
+        // GPU dependencies
+        copy {
+            from("${outputDir}/libtorch/lib/") {
+                include "libtorch_cuda*.so", "torch_cuda*.dll", "libc10_cuda.so", "c10_cuda.dll", "libcaffe2_nvrtc.so", "libnvrtc*.so.*", "libcudart*.*", "*nvToolsExt*.*", "cudnn*.dll", "caffe2_nvrtc.dll", "nvrtc64*.dll"
+            }
+            into("${outputDir}/native/lib")
+        }
+        if (precxx11) {
+            def libstd = new File("${outputDir}/native/lib/libstdc++.so.6")
+            new URL("https://publish.djl.ai/extra/libstdc%2B%2B.so.6").withInputStream {
+                i -> libstd.withOutputStream { it << i }
+            }
+        }
+        delete(file)
+        delete("${outputDir}/libtorch")
     }
 }
 
@@ -65,7 +122,7 @@ def cleanBuild() {
 
 task compileAndroidJNI {
     doFirst {
-        downloadBuildAndroid()
+        downloadBuildAndroid("${VERSION}")
     }
 }
 
@@ -74,25 +131,25 @@ task releaseJNI {
         // You have to use an environment with CUDA persets for Linux and Windows
         if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("windows")) {
             if (!isGPU) {
-                downloadBuild("win", "cpu")
+                downloadBuild("${VERSION}", "win", "cpu")
                 cleanBuild()
             } else {
-                downloadBuild("win", "cu102")
+                downloadBuild("${VERSION}", "win", "cu102")
                 cleanBuild()
-                downloadBuild("win", "cu111")
+                downloadBuild("${VERSION}", "win", "cu111")
                 cleanBuild()
             }
         } else if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("mac") && !isGPU) {
-            downloadBuild("osx", "cpu")
+            downloadBuild("${VERSION}", "osx", "cpu")
             cleanBuild()
         } else if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("linux")) {
             if (!isGPU) {
-                downloadBuild("linux", "cpu", isPrecxx11)
+                downloadBuild("${VERSION}", "linux", "cpu", isPrecxx11)
                 cleanBuild()
             } else {
-                downloadBuild("linux", "cu102", isPrecxx11)
+                downloadBuild("${VERSION}", "linux", "cu102", isPrecxx11)
                 cleanBuild()
-                downloadBuild("linux", "cu111", isPrecxx11)
+                downloadBuild("${VERSION}", "linux", "cu111", isPrecxx11)
                 cleanBuild()
             }
         } else {
@@ -108,11 +165,11 @@ task releaseJNI {
 task compileJNI {
     doFirst {
         if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("windows")) {
-            downloadBuild("win", "cpu")
+            downloadBuild("${VERSION}", "win", "cpu")
         } else if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("mac")) {
-            downloadBuild("osx", "cpu")
+            downloadBuild("${VERSION}", "osx", "cpu")
         } else if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("linux")) {
-            downloadBuild("linux", "cpu")
+            downloadBuild("${VERSION}", "linux", "cpu")
         } else {
             throw new IllegalStateException("Unknown Architecture " + System.properties['os.name'])
         }
@@ -125,9 +182,9 @@ task compileJNI {
 task compileJNIGPU {
     doFirst {
         if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("windows")) {
-            downloadBuild("win", "cu102")
+            downloadBuild("${VERSION}", "win", "cu102")
         } else if (System.properties['os.name'].toLowerCase(Locale.ROOT).contains("linux")) {
-            downloadBuild("linux", "cu102")
+            downloadBuild("${VERSION}", "linux", "cu102")
         } else {
             throw new IllegalStateException("Architecture not supported: " + System.properties['os.name'])
         }
@@ -200,55 +257,7 @@ publishing.repositories {
 
 task downloadPyTorchNativeLib() {
     doLast {
-        def url = "https://download.pytorch.org/libtorch"
-        def files = [
-                "cpu/libtorch-cxx11-abi-shared-with-deps-${VERSION}%2Bcpu.zip"    : "cpu/linux",
-                "cpu/libtorch-macos-${VERSION}.zip"                               : "cpu/osx",
-                "cpu/libtorch-win-shared-with-deps-${VERSION}%2Bcpu.zip"          : "cpu/win",
-                "cu102/libtorch-cxx11-abi-shared-with-deps-${VERSION}%2Bcu102.zip": "cu102/linux",
-                "cu111/libtorch-cxx11-abi-shared-with-deps-${VERSION}%2Bcu111.zip": "cu111/linux",
-                "cu102/libtorch-win-shared-with-deps-${VERSION}%2Bcu102.zip"      : "cu102/win",
-                "cu111/libtorch-win-shared-with-deps-${VERSION}%2Bcu111.zip"      : "cu111/win"
-        ]
-        if (isPrecxx11) {
-            // precxx11 only support cpu for now
-            files = [
-                    "cpu/libtorch-shared-with-deps-${VERSION}%2Bcpu.zip": "cpu/linux",
-            ]
-        }
-        files.each { entry ->
-            project.logger.lifecycle("Downloading ${url}/${entry.key}")
-            def outputDir = new File("${BINARY_ROOT}/${entry.value}")
-            def file = new File("${outputDir}/libtorch.zip")
-            file.getParentFile().mkdirs()
-            new URL("${url}/${entry.key}").withInputStream { i -> file.withOutputStream { it << i } }
-            copy {
-                from zipTree(file)
-                into outputDir
-            }
-            // CPU dependencies
-            copy {
-                from("${outputDir}/libtorch/lib/") {
-                    include "libc10.*", "c10.dll", "libiomp5*.*", "libgomp*.*", "libtorch.*", "libtorch_cpu.*", "torch.dll", "torch_cpu.dll", "fbgemm.dll", "asmjit.dll"
-                }
-                into("${outputDir}/native/lib")
-            }
-            // GPU dependencies
-            copy {
-                from("${outputDir}/libtorch/lib/") {
-                    include "libtorch_cuda*.so", "torch_cuda*.dll", "libc10_cuda.so", "c10_cuda.dll", "libcaffe2_nvrtc.so", "libnvrtc*.so.*", "libcudart*.*", "*nvToolsExt*.*", "cudnn*.dll", "caffe2_nvrtc.dll", "nvrtc64*.dll"
-                }
-                into("${outputDir}/native/lib")
-            }
-            if (isPrecxx11) {
-                def libstd = new File("${outputDir}/native/lib/libstdc++.so.6")
-                new URL("https://publish.djl.ai/extra/libstdc%2B%2B.so.6").withInputStream {
-                    i -> libstd.withOutputStream { it << i }
-                }
-            }
-            delete(file)
-            delete("${outputDir}/libtorch")
-        }
+        prepareNativeLib("${BINARY_ROOT}", "${VERSION}", isPrecxx11, true)
         if (!isPrecxx11) {
             new File("${BINARY_ROOT}/auto").mkdirs()
         }
@@ -257,6 +266,10 @@ task downloadPyTorchNativeLib() {
 
 task uploadS3 {
     doLast {
+        delete "${BINARY_ROOT}"
+        prepareNativeLib("${BINARY_ROOT}", "${VERSION}", false, false)
+        prepareNativeLib("${BINARY_ROOT}", "${VERSION}", true, false)
+
         exec {
             commandLine "sh", "-c", "find ${BINARY_ROOT} -type f | xargs gzip"
         }
@@ -265,6 +278,7 @@ task uploadS3 {
                 "${BINARY_ROOT}/cpu/linux/native/lib/",
                 "${BINARY_ROOT}/cpu/osx/native/lib/",
                 "${BINARY_ROOT}/cpu/win/native/lib/",
+                "${BINARY_ROOT}/cpu-precxx11/linux/native/lib/",
                 "${BINARY_ROOT}/cu102/linux/native/lib/",
                 "${BINARY_ROOT}/cu102/win/native/lib/",
                 "${BINARY_ROOT}/cu111/linux/native/lib/",
@@ -273,7 +287,7 @@ task uploadS3 {
         uploadDirs.each { item ->
             fileTree(item).files.name.each {
                 def out = item - "${BINARY_ROOT}/"
-                f << out + it
+                f << out + URLEncoder.encode(it, "UTF-8")
                 f << "\n"
             }
         }

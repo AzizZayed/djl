@@ -32,7 +32,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -49,16 +49,12 @@ public final class SuperResolution {
         ImageFactory imageFactory = ImageFactory.getInstance();
 
         List<Image> inputImages =
-                Arrays.asList(imageFactory.fromFile(Paths.get(imagePath + "fox.png")));
+                Collections.singletonList(imageFactory.fromFile(Paths.get(imagePath + "fox.png")));
 
         List<Image> enhancedImages = enhance(inputImages);
 
-        if (enhancedImages == null) {
-            logger.info("This example only works for TensorFlow Engine");
-        } else {
-            logger.info("Using TensorFlow Engine. {} images generated.", enhancedImages.size());
-            saveImages(inputImages, enhancedImages);
-        }
+        logger.info("Using TensorFlow Engine. {} images generated.", enhancedImages.size());
+        saveImages(inputImages, enhancedImages);
     }
 
     private static void saveImages(List<Image> input, List<Image> generated) throws IOException {
@@ -81,7 +77,7 @@ public final class SuperResolution {
     private static List<Image> group(List<Image> input, List<Image> generated) {
         NDList stitches = new NDList(input.size());
 
-        try (NDManager manager = Engine.getInstance().newBaseManager()) {
+        try (NDManager manager = Engine.getEngine("TensorFlow").newBaseManager()) {
             for (int i = 0; i < input.size(); i++) {
                 int scale = 4;
                 int width = scale * input.get(i).getWidth();
@@ -106,10 +102,6 @@ public final class SuperResolution {
     public static List<Image> enhance(List<Image> inputImages)
             throws IOException, ModelException, TranslateException {
 
-        if (!"TensorFlow".equals(Engine.getInstance().getEngineName())) {
-            return null;
-        }
-
         String modelUrl =
                 "https://storage.googleapis.com/tfhub-modules/captain-pool/esrgan-tf2/1.tar.gz";
         Criteria<Image, Image> criteria =
@@ -120,6 +112,7 @@ public final class SuperResolution {
                         .optOption("Tags", "serve")
                         .optOption("SignatureDefKey", "serving_default")
                         .optTranslator(new SuperResolutionTranslator())
+                        .optEngine("TensorFlow")
                         .optProgress(new ProgressBar())
                         .build();
 

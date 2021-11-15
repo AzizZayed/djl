@@ -20,8 +20,8 @@ import ai.djl.modality.cv.util.NDImageUtils;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.types.Shape;
-import ai.djl.translate.Batchifier;
-import ai.djl.translate.Translator;
+import ai.djl.translate.ArgumentsUtil;
+import ai.djl.translate.NoBatchifyTranslator;
 import ai.djl.translate.TranslatorContext;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,7 +32,7 @@ import java.util.Map;
  * A {@link PpFaceDetectionTranslator} that post-process the {@link NDArray} into {@link
  * DetectedObjects} with boundaries.
  */
-public class PpFaceDetectionTranslator implements Translator<Image, DetectedObjects> {
+public class PpFaceDetectionTranslator implements NoBatchifyTranslator<Image, DetectedObjects> {
 
     private float shrink;
     private float threshold;
@@ -44,14 +44,8 @@ public class PpFaceDetectionTranslator implements Translator<Image, DetectedObje
      * @param arguments the arguments for the translator
      */
     public PpFaceDetectionTranslator(Map<String, ?> arguments) {
-        threshold =
-                arguments.containsKey("threshold")
-                        ? (float) Double.parseDouble(arguments.get("threshold").toString())
-                        : 0.7f;
-        shrink =
-                arguments.containsKey("shrink")
-                        ? (float) Double.parseDouble(arguments.get("shrink").toString())
-                        : 0.5f;
+        threshold = ArgumentsUtil.floatValue(arguments, "threshold", 0.7f);
+        shrink = ArgumentsUtil.floatValue(arguments, "shrink", 0.5f);
         className = Arrays.asList("Not Face", "Face");
     }
 
@@ -90,11 +84,5 @@ public class PpFaceDetectionTranslator implements Translator<Image, DetectedObje
             }
         }
         return new DetectedObjects(names, prob, boxes);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Batchifier getBatchifier() {
-        return null;
     }
 }

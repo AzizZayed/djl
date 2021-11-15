@@ -14,11 +14,8 @@ dependencies {
     }
 
     runtimeOnly project(":engines:mxnet:mxnet-model-zoo")
-    runtimeOnly "ai.djl.mxnet:mxnet-native-auto:${mxnet_version}"
     runtimeOnly project(":engines:pytorch:pytorch-model-zoo")
-    runtimeOnly "ai.djl.pytorch:pytorch-native-auto:${pytorch_native_version}"
     runtimeOnly project(":engines:tensorflow:tensorflow-model-zoo")
-    runtimeOnly "ai.djl.tensorflow:tensorflow-native-auto:${tensorflow_version}"
     runtimeOnly project(":engines:ml:xgboost")
 
     if (System.getProperty("ai.djl.default_engine") == "OnnxRuntime") {
@@ -29,10 +26,8 @@ dependencies {
         runtimeOnly "ai.djl.tflite:tflite-native-auto:${tflite_version}"
     } else if (System.getProperty("ai.djl.default_engine") == "DLR") {
         runtimeOnly project(":engines:dlr:dlr-engine")
-        runtimeOnly "ai.djl.dlr:dlr-native-auto:${dlr_version}"
     } else if (System.getProperty("ai.djl.default_engine") == "PaddlePaddle") {
         runtimeOnly project(":engines:paddlepaddle:paddlepaddle-model-zoo")
-        runtimeOnly "ai.djl.paddlepaddle:paddlepaddle-native-auto:${paddlepaddle_version}"
     }
 }
 

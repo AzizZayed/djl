@@ -17,8 +17,7 @@ import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.util.NDImageUtils;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
-import ai.djl.translate.Batchifier;
-import ai.djl.translate.Translator;
+import ai.djl.translate.NoBatchifyTranslator;
 import ai.djl.translate.TranslatorContext;
 import ai.djl.util.Utils;
 import java.io.IOException;
@@ -29,15 +28,14 @@ import java.util.List;
  * A {@link PpWordRecognitionTranslator} that preprocess {@link Image} post-process the {@link
  * NDArray} into text.
  */
-public class PpWordRecognitionTranslator implements Translator<Image, String> {
+public class PpWordRecognitionTranslator implements NoBatchifyTranslator<Image, String> {
 
     private List<String> table;
 
     /** {@inheritDoc} */
     @Override
     public void prepare(TranslatorContext ctx) throws IOException {
-        try (InputStream is =
-                ctx.getModel().getArtifact("rec_crnn/ppocr_keys_v1.txt").openStream()) {
+        try (InputStream is = ctx.getModel().getArtifact("ppocr_keys_v1.txt").openStream()) {
             table = Utils.readLines(is, true);
             table.add(0, "blank");
             table.add("");
@@ -68,12 +66,6 @@ public class PpWordRecognitionTranslator implements Translator<Image, String> {
         img = NDImageUtils.toTensor(img).sub(0.5f).div(0.5f);
         img = img.expandDims(0);
         return new NDList(img);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Batchifier getBatchifier() {
-        return null;
     }
 
     private int[] resize32(double w) {

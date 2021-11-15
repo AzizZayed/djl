@@ -12,8 +12,6 @@
 name: "CodeQL"
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [ master ]
@@ -22,6 +20,7 @@ on:
 
 jobs:
   analyze:
+    if: github.repository == 'deepjavalibrary/djl'
     name: Analyze
     runs-on: ubuntu-latest
 

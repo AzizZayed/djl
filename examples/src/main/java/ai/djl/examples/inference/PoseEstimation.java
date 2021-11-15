@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,7 @@ public final class PoseEstimation {
 
         if (person == null) {
             logger.warn("No person found in image.");
-            return null;
+            return new Joints(Collections.emptyList());
         }
 
         return predictJointsInPerson(person);
@@ -78,6 +79,7 @@ public final class PoseEstimation {
                         .optFilter("backbone", "resnet50")
                         .optFilter("flavor", "v1")
                         .optFilter("dataset", "voc")
+                        .optEngine("MXNet")
                         .optProgress(new ProgressBar())
                         .build();
 
@@ -94,7 +96,7 @@ public final class PoseEstimation {
                 Rectangle rect = item.getBoundingBox().getBounds();
                 int width = img.getWidth();
                 int height = img.getHeight();
-                return img.getSubimage(
+                return img.getSubImage(
                         (int) (rect.getX() * width),
                         (int) (rect.getY() * height),
                         (int) (rect.getWidth() * width),

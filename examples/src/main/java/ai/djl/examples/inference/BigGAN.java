@@ -14,7 +14,6 @@ package ai.djl.examples.inference;
 
 import ai.djl.Application;
 import ai.djl.ModelException;
-import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
 import ai.djl.repository.zoo.Criteria;
@@ -37,13 +36,8 @@ public final class BigGAN {
 
     public static void main(String[] args) throws ModelException, TranslateException, IOException {
         Image[] generatedImages = BigGAN.generate();
-
-        if (generatedImages == null) {
-            logger.info("This example only works for PyTorch Engine");
-        } else {
-            logger.info("Using PyTorch Engine. {} images generated.", generatedImages.length);
-            saveImages(generatedImages);
-        }
+        logger.info("Using PyTorch Engine. {} images generated.", generatedImages.length);
+        saveImages(generatedImages);
     }
 
     private static void saveImages(Image[] generatedImages) throws IOException {
@@ -58,16 +52,13 @@ public final class BigGAN {
     }
 
     public static Image[] generate() throws IOException, ModelException, TranslateException {
-        if (!"PyTorch".equals(Engine.getInstance().getEngineName())) {
-            return null;
-        }
-
         Criteria<int[], Image[]> criteria =
                 Criteria.builder()
                         .optApplication(Application.CV.IMAGE_GENERATION)
                         .setTypes(int[].class, Image[].class)
                         .optFilter("size", "256")
                         .optArgument("truncation", 0.4f)
+                        .optEngine("PyTorch")
                         .optProgress(new ProgressBar())
                         .build();
 

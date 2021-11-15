@@ -17,6 +17,7 @@ import ai.djl.Model;
 import ai.djl.modality.Input;
 import ai.djl.modality.Output;
 import ai.djl.modality.cv.translator.ImageClassificationTranslator;
+import ai.djl.modality.cv.translator.ImageServingTranslator;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.util.Pair;
@@ -64,7 +65,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         }
 
         Path modelDir = model.getModelPath();
-        String factoryClass = (String) arguments.get("translatorFactory");
+        String factoryClass = ArgumentsUtil.stringValue(arguments, "translatorFactory");
         if (factoryClass != null && !factoryClass.isEmpty()) {
             TranslatorFactory factory = loadTranslatorFactory(factoryClass);
             if (factory != null
@@ -195,17 +196,14 @@ public class ServingTranslatorFactory implements TranslatorFactory {
     }
 
     private Translator<Input, Output> loadDefaultTranslator(Map<String, ?> arguments) {
-        String appName = (String) arguments.get("application");
+        String appName = ArgumentsUtil.stringValue(arguments, "application");
         if (appName != null) {
             Application application = Application.of(appName);
             if (application == Application.CV.IMAGE_CLASSIFICATION) {
                 return getImageClassificationTranslator(arguments);
             }
         }
-        String batchifier = (String) arguments.get("batchifier");
-        if (batchifier == null) {
-            return new RawTranslator(null);
-        }
+        String batchifier = ArgumentsUtil.stringValue(arguments, "batchifier", "none");
         return new RawTranslator(Batchifier.fromString(batchifier));
     }
 
@@ -261,7 +259,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         /** {@inheritDoc} */
         @Override
         public Output processOutput(TranslatorContext ctx, NDList list) {
-            Output output = new Output(200, "OK");
+            Output output = new Output();
             // TODO: find a way to pass NDList out
             output.add(list.getAsBytes());
             output.addProperty("Content-Type", "tensor/ndlist");

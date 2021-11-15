@@ -5,12 +5,12 @@
 
     <groupId>ai.djl</groupId>
     <artifactId>examples</artifactId>
-    <version>0.14.0-SNAPSHOT</version>
+    <version>0.15.0-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <djl.version>0.14.0-SNAPSHOT</djl.version>
+        <djl.version>0.15.0-SNAPSHOT</djl.version>
         <exec.mainClass>ai.djl.examples.inference.ObjectDetection</exec.mainClass>
     </properties>
 
@@ -81,14 +81,6 @@
         <dependency>
             <groupId>ai.djl.pytorch</groupId>
             <artifactId>pytorch-engine</artifactId>
-        </dependency>
-        <dependency>
-            <!--
-                See https://github.com/deepjavalibrary/djl/blob/master/engines/pytorch/README.md for more PyTorch library selection options
-            -->
-            <groupId>ai.djl.pytorch</groupId>
-            <artifactId>pytorch-native-auto</artifactId>
-            <version>1.7.0</version>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>

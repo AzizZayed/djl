@@ -53,7 +53,7 @@ public final class ObjectDetection {
         Image img = ImageFactory.getInstance().fromFile(imageFile);
 
         String backbone;
-        if ("TensorFlow".equals(Engine.getInstance().getEngineName())) {
+        if ("TensorFlow".equals(Engine.getDefaultEngineName())) {
             backbone = "mobilenet_v2";
         } else {
             backbone = "resnet50";
@@ -64,6 +64,7 @@ public final class ObjectDetection {
                         .optApplication(Application.CV.OBJECT_DETECTION)
                         .setTypes(Image.class, DetectedObjects.class)
                         .optFilter("backbone", backbone)
+                        .optEngine(Engine.getDefaultEngineName())
                         .optProgress(new ProgressBar())
                         .build();
 
@@ -81,13 +82,11 @@ public final class ObjectDetection {
         Path outputDir = Paths.get("build/output");
         Files.createDirectories(outputDir);
 
-        // Make image copy with alpha channel because original image was jpg
-        Image newImage = img.duplicate(Image.Type.TYPE_INT_ARGB);
-        newImage.drawBoundingBoxes(detection);
+        img.drawBoundingBoxes(detection);
 
         Path imagePath = outputDir.resolve("detected-dog_bike_car.png");
         // OpenJDK can't save jpg with alpha channel
-        newImage.save(Files.newOutputStream(imagePath), "png");
+        img.save(Files.newOutputStream(imagePath), "png");
         logger.info("Detected objects image has been saved in: {}", imagePath);
     }
 }

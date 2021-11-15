@@ -31,6 +31,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -99,8 +100,8 @@ public abstract class BaseModel implements Model {
 
     /** {@inheritDoc} */
     @Override
-    public <I, O> Predictor<I, O> newPredictor(Translator<I, O> translator) {
-        return new Predictor<>(this, translator, false);
+    public <I, O> Predictor<I, O> newPredictor(Translator<I, O> translator, Device device) {
+        return new Predictor<>(this, translator, device, false);
     }
 
     /** {@inheritDoc} */
@@ -214,6 +215,14 @@ public abstract class BaseModel implements Model {
     }
 
     protected void setModelDir(Path modelDir) {
+        if (Files.isDirectory(modelDir)) {
+            File[] files = modelDir.toFile().listFiles();
+            if (files != null && files.length == 1 && files[0].isDirectory()) {
+                // handle archive file contains folder name case
+                this.modelDir = files[0].toPath().toAbsolutePath();
+                return;
+            }
+        }
         this.modelDir = modelDir.toAbsolutePath();
     }
 

@@ -15,6 +15,7 @@ package ai.djl.examples.inference;
 
 import ai.djl.Application;
 import ai.djl.ModelException;
+import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.nlp.qa.QAInput;
 import ai.djl.repository.zoo.Criteria;
@@ -51,10 +52,12 @@ public final class BertQaInference {
     }
 
     public static String predict() throws IOException, TranslateException, ModelException {
+        //        String question = "How is the weather";
+        //        String paragraph = "The weather is nice, it is beautiful day";
         String question = "When did BBC Japan start broadcasting?";
         String paragraph =
-                "BBC Japan was a general entertainment Channel.\n"
-                        + "Which operated between December 2004 and April 2006.\n"
+                "BBC Japan was a general entertainment Channel. "
+                        + "Which operated between December 2004 and April 2006. "
                         + "It ceased operations after its Japanese distributor folded.";
 
         QAInput input = new QAInput(question, paragraph);
@@ -66,6 +69,7 @@ public final class BertQaInference {
                         .optApplication(Application.NLP.QUESTION_ANSWER)
                         .setTypes(QAInput.class, String.class)
                         .optFilter("backbone", "bert")
+                        .optEngine(Engine.getDefaultEngineName())
                         .optProgress(new ProgressBar())
                         .build();
 
