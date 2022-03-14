@@ -37,6 +37,16 @@ JNIEXPORT void JNICALL Java_ai_djl_sentencepiece_jni_SentencePieceLibrary_loadMo
   CheckStatus(env, processor_ptr->Load(path_string));
 }
 
+JNIEXPORT void JNICALL Java_ai_djl_sentencepiece_jni_SentencePieceLibrary_loadModelFromBytes(
+        JNIEnv* env, jobject jthis, jlong jhandle, jbyteArray jserialized) {
+    auto* processor_ptr = reinterpret_cast<sentencepiece::SentencePieceProcessor*>(jhandle);
+    int length = env->GetArrayLength(jserialized);
+    std::vector<char> buff(length, 0);
+    env->GetByteArrayRegion(jserialized, 0, length, reinterpret_cast<jbyte*>(buff.data()));
+    std::string serialized(buff.data(), buff.size());
+    CheckStatus(env, processor_ptr->LoadFromSerializedProto(serialized));
+}
+
 JNIEXPORT void JNICALL Java_ai_djl_sentencepiece_jni_SentencePieceLibrary_deleteSentencePieceProcessor(
     JNIEnv* env, jobject jthis, jlong jhandle) {
   auto* processor_ptr = reinterpret_cast<sentencepiece::SentencePieceProcessor*>(jhandle);
@@ -86,7 +96,7 @@ JNIEXPORT jstring JNICALL Java_ai_djl_sentencepiece_jni_SentencePieceLibrary_idT
   return env->NewStringUTF(processor_ptr->IdToPiece(jid).c_str());
 }
 
-JNIEXPORT int JNICALL Java_ai_djl_sentencepiece_jni_SentencePieceLibrary_pieceToId(
+JNIEXPORT jint JNICALL Java_ai_djl_sentencepiece_jni_SentencePieceLibrary_pieceToId(
     JNIEnv* env, jobject jthis, jlong jhandle, jstring jpiece) {
   auto* processor_ptr = reinterpret_cast<sentencepiece::SentencePieceProcessor*>(jhandle);
   return processor_ptr->PieceToId(djl::utils::jni::GetStringFromJString(env, jpiece));

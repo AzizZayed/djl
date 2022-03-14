@@ -73,23 +73,53 @@ publishing.repositories {
     }
 }
 
-task downloadTfliteNativeLib() {
-    doLast {
-        def url = "https://djl-ai.s3.amazonaws.com/publish/tflite-${tflite_version}/jnilib"
-        def files = [
-                "macOS/libtensorflowlite_jni.so": "cpu/osx/native/lib/libtensorflowlite_jni.dylib",
-                "Linux/libtensorflowlite_jni.so": "cpu/linux/native/lib/libtensorflowlite_jni.so"
-        ]
+def downloadJni(String dir) {
+    String url = "https://djl-ai.s3.amazonaws.com/publish/tflite/${tflite_version}/jnilib"
+    def files = [
+            "macOS/libtensorflowlite_jni.so": "cpu/osx-x86_64/native/lib/libtensorflowlite_jni.dylib",
+            "Linux/libtensorflowlite_jni.so": "cpu/linux-x86_64/native/lib/libtensorflowlite_jni.so"
+    ]
 
-        files.each { entry ->
-            project.logger.lifecycle("Downloading ${url}/${entry.key}")
-            def file = new File("${BINARY_ROOT}/${entry.value}")
-            file.getParentFile().mkdirs()
-            new URL("${url}/${entry.key}").withInputStream { i -> file.withOutputStream { it << i } }
-        }
-        new File("${BINARY_ROOT}/auto").mkdirs()
+    for (Map.Entry<String, String> entry : files.entrySet()) {
+        project.logger.lifecycle("Downloading ${url}/${entry.key}")
+        def file = new File("${dir}/${entry.value}")
+        file.getParentFile().mkdirs()
+        new URL("${url}/${entry.key}").withInputStream { i -> file.withOutputStream { it << i } }
     }
 }
+
+task downloadTfliteNativeLib() {
+    doLast {
+        delete "${BINARY_ROOT}"
+        downloadJni("${BINARY_ROOT}")
+    }
+}
+
+task uploadS3 {
+    doLast {
+        delete "${BINARY_ROOT}"
+        downloadJni("${BINARY_ROOT}")
+        exec {
+            commandLine "sh", "-c", "find ${BINARY_ROOT} -type f | xargs gzip"
+        }
+        def f = new File("${BINARY_ROOT}/files.txt")
+        def uploadDirs = [
+                "${BINARY_ROOT}/cpu/linux-x86_64/native/lib/",
+                "${BINARY_ROOT}/cpu/osx-x86_64/native/lib/"
+        ]
+        uploadDirs.each { item ->
+            fileTree(item).files.name.each {
+                def out = item - "${BINARY_ROOT}/"
+                f << out + URLEncoder.encode(it, "UTF-8")
+                f << "\n"
+            }
+        }
+        exec {
+            commandLine "aws", "s3", "sync", "${BINARY_ROOT}", "s3://djl-ai/publish/tflite/${tflite_version}/"
+        }
+    }
+}
+
 
 def flavorNames = file(BINARY_ROOT).list() ?: []
 flavorNames.each { flavor ->
@@ -106,7 +136,7 @@ flavorNames.each { flavor ->
                 def dsStore = file("${BINARY_ROOT}/${flavor}/${osName}/native/lib/.DS_Store")
                 dsStore.delete()
 
-                def versionName = String.format("${version}-%s", new Date().format('yyyyMMdd'))
+                def versionName = String.format("${project.version}-%s", new Date().format('yyyyMMdd'))
                 def dir = file("${BINARY_ROOT}/${flavor}/${osName}/native/lib")
                 def sb = new StringBuilder()
                 sb.append("version=${versionName}\nclassifier=${flavor}-${osName}-x86_64\nlibraries=")
@@ -124,7 +154,7 @@ flavorNames.each { flavor ->
             from file("${BINARY_ROOT}/${flavor}/${osName}")
             from file("src/main/resources")
             from file("${project.buildDir}/classes/java/main")
-            archiveClassifier = "${osName}-x86_64"
+            archiveClassifier = "${osName}"
 
             manifest {
                 attributes("Automatic-Module-Name": "ai.djl.tflite_native_${flavor}_${osName}")
@@ -176,6 +206,3 @@ flavorNames.each { flavor ->
         }
     }
 }
-
-checkstyleMain.enabled = false
-pmdMain.enabled = false

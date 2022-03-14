@@ -61,8 +61,7 @@ public abstract class Engine {
     private static synchronized String initEngine() {
         ServiceLoader<EngineProvider> loaders = ServiceLoader.load(EngineProvider.class);
         for (EngineProvider provider : loaders) {
-            logger.debug("Found EngineProvider: {}", provider.getEngineName());
-            ALL_ENGINES.put(provider.getEngineName(), provider);
+            registerEngine(provider);
         }
 
         if (ALL_ENGINES.isEmpty()) {
@@ -142,6 +141,16 @@ public abstract class Engine {
      */
     public static boolean hasEngine(String engineName) {
         return ALL_ENGINES.containsKey(engineName);
+    }
+
+    /**
+     * Registers a {@link EngineProvider} if not registered.
+     *
+     * @param provider the {@code EngineProvider} to be registered
+     */
+    public static void registerEngine(EngineProvider provider) {
+        logger.debug("Registering EngineProvider: {}", provider.getEngineName());
+        ALL_ENGINES.putIfAbsent(provider.getEngineName(), provider);
     }
 
     /**
@@ -366,15 +375,11 @@ public abstract class Engine {
 
         System.out.println();
         System.out.println("----------------- Engines ---------------");
+        System.out.println("DJL version: " + Engine.class.getPackage().getSpecificationVersion());
         System.out.println("Default Engine: " + DEFAULT_ENGINE);
-        System.out.println("Default Device: " + Engine.getInstance().defaultDevice);
+        System.out.println("Default Device: " + Engine.getInstance().defaultDevice());
         for (EngineProvider provider : ALL_ENGINES.values()) {
             System.out.println(provider.getEngineName() + ": " + provider.getEngineRank());
-            try {
-                provider.getEngine();
-            } catch (EngineException e) {
-                e.printStackTrace(System.out);
-            }
         }
     }
 }

@@ -23,9 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -74,55 +72,11 @@ public final class LibUtils {
     }
 
     private static synchronized String findNativeLibrary() {
-        Enumeration<URL> urls;
-        try {
-            urls =
-                    Thread.currentThread()
-                            .getContextClassLoader()
-                            .getResources("native/lib/dlr.properties");
-        } catch (IOException e) {
-            logger.warn("", e);
-            return null;
+        Platform platform = Platform.detectPlatform("dlr");
+        if (platform.isPlaceholder()) {
+            return downloadDlr(platform);
         }
-        // No native jars
-        if (!urls.hasMoreElements()) {
-            try (InputStream is = LibUtils.class.getResourceAsStream("/jnilib/dlr.properties")) {
-                Properties prop = new Properties();
-                prop.load(is);
-                String preferredVersion = prop.getProperty("dlr_version");
-                Platform platform = Platform.fromSystem(preferredVersion);
-                return downloadDlr(platform);
-            } catch (IOException e) {
-                throw new IllegalStateException("Cannot find DLR property file", e);
-            }
-        }
-
-        Platform systemPlatform = Platform.fromSystem();
-        try {
-            Platform matching = null;
-            Platform placeholder = null;
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                Platform platform = Platform.fromUrl(url);
-                if (platform.isPlaceholder()) {
-                    placeholder = platform;
-                } else if (platform.matches(systemPlatform)) {
-                    matching = platform;
-                }
-
-                if (matching != null) {
-                    return copyNativeLibraryFromClasspath(matching);
-                }
-
-                if (placeholder != null) {
-                    return downloadDlr(placeholder);
-                }
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to read DLR native library jar properties", e);
-        }
-        throw new IllegalStateException(
-                "Your DLR native library jar does not match your operating system. Make sure the Maven Dependency Classifier matches your system type.");
+        return copyNativeLibraryFromClasspath(platform);
     }
 
     private static String copyNativeLibraryFromClasspath(Platform platform) {
@@ -202,29 +156,22 @@ public final class LibUtils {
 
     private static String copyJniLibraryFromClasspath(Path nativeDir) {
         String name = System.mapLibraryName(LIB_NAME);
-        Platform platform = Platform.fromSystem();
+        Platform platform = Platform.detectPlatform("dlr");
         String classifier = platform.getClassifier();
-        String flavor = platform.getFlavor();
-        Properties prop = new Properties();
-        try (InputStream stream = LibUtils.class.getResourceAsStream("/jnilib/dlr.properties")) {
-            prop.load(stream);
-        } catch (IOException e) {
-            throw new IllegalStateException("Cannot find DLR property file", e);
-        }
-        String version = prop.getProperty("version");
-        Path path = nativeDir.resolve(version + '-' + flavor + '-' + name);
+        String djlVersion = platform.getApiVersion();
+        Path path = nativeDir.resolve(djlVersion + '-' + name);
         if (Files.exists(path)) {
             return path.toAbsolutePath().toString();
         }
         Path tmp = null;
-        try (InputStream stream =
-                // both cpu & gpu share the same jnilib
-                LibUtils.class.getResourceAsStream("/jnilib/" + classifier + '/' + name)) {
-            if (stream == null) {
+        // both cpu & gpu share the same jnilib
+        String lib = "/jnilib/" + classifier + '/' + name;
+        try (InputStream is = LibUtils.class.getResourceAsStream(lib)) {
+            if (is == null) {
                 throw new UnsupportedOperationException("DLR is not supported by this platform");
             }
             tmp = Files.createTempFile(nativeDir, "jni", "tmp");
-            Files.copy(stream, tmp, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(is, tmp, StandardCopyOption.REPLACE_EXISTING);
             Utils.moveQuietly(tmp, path);
             return path.toAbsolutePath().toString();
         } catch (IOException e) {
@@ -273,8 +220,10 @@ public final class LibUtils {
             }
 
             tmp = Files.createTempDirectory(dlrCacheRoot, "tmp");
+            boolean found = false;
             for (String line : lines) {
                 if (line.startsWith(os + '/' + flavor + '/')) {
+                    found = true;
                     URL url = new URL(link + '/' + line);
                     String fileName = line.substring(line.lastIndexOf('/') + 1);
                     logger.info("Downloading {} ...", url);
@@ -282,6 +231,10 @@ public final class LibUtils {
                         Files.copy(fis, tmp.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
                     }
                 }
+            }
+            if (!found) {
+                throw new IllegalStateException(
+                        "No DLR native library matches your operating system: " + platform);
             }
 
             Utils.moveQuietly(tmp, cacheDir);

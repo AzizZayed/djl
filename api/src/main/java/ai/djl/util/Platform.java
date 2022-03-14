@@ -16,15 +16,16 @@ import ai.djl.util.cuda.CudaUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Enumeration;
 import java.util.Properties;
 
 /**
- * The platform contains information regarding the version, os, and build flavor of the MXNet native
- * code.
+ * The platform contains information regarding the version, os, and build flavor of the native code.
  */
 public final class Platform {
 
     private String version;
+    private String apiVersion;
     private String osPrefix;
     private String osArch;
     private String flavor;
@@ -36,24 +37,79 @@ public final class Platform {
     private Platform() {}
 
     /**
+     * Returns the platform that matches current operating system.
+     *
+     * @param engine the name of the engine
+     * @param overrideVersion the version of the engine
+     * @return the platform that matches current operating system
+     */
+    public static Platform detectPlatform(String engine, String overrideVersion) {
+        Platform platform = Platform.fromSystem(engine);
+        platform.version = overrideVersion;
+        return platform;
+    }
+
+    /**
+     * Returns the platform that matches current operating system.
+     *
+     * @param engine the name of the engine
+     * @return the platform that matches current operating system
+     */
+    public static Platform detectPlatform(String engine) {
+        String nativeProp = "native/lib/" + engine + ".properties";
+        Enumeration<URL> urls;
+        try {
+            urls = ClassLoaderUtils.getContextClassLoader().getResources(nativeProp);
+        } catch (IOException e) {
+            throw new AssertionError("Failed to list property files.", e);
+        }
+
+        Platform systemPlatform = Platform.fromSystem(engine);
+        Platform placeholder = null;
+        while (urls.hasMoreElements()) {
+            URL url = urls.nextElement();
+            Platform platform = Platform.fromUrl(url);
+            platform.apiVersion = systemPlatform.apiVersion;
+            if (platform.isPlaceholder()) {
+                placeholder = platform;
+            } else if (platform.matches(systemPlatform)) {
+                return platform;
+            }
+        }
+        if (placeholder != null) {
+            return placeholder;
+        }
+
+        if (systemPlatform.version == null) {
+            throw new AssertionError("No " + engine + " version found in property file.");
+        }
+        if (systemPlatform.apiVersion == null) {
+            throw new AssertionError("No " + engine + " djl_version found in property file.");
+        }
+        return systemPlatform;
+    }
+
+    /**
      * Returns the platform that parsed from "engine".properties file.
      *
      * @param url the url to the "engine".properties file
-     * @return the platform that parsed from mxnet.properties file
-     * @throws IOException if the file could not be read
+     * @return the platform that parsed from "engine".properties file
      */
-    public static Platform fromUrl(URL url) throws IOException {
+    static Platform fromUrl(URL url) {
         Platform platform = Platform.fromSystem();
         try (InputStream conf = url.openStream()) {
             Properties prop = new Properties();
             prop.load(conf);
-            // 1.6.0 later should always has version property
             platform.version = prop.getProperty("version");
             if (platform.version == null) {
                 throw new IllegalArgumentException(
                         "version key is required in <engine>.properties file.");
             }
             platform.placeholder = prop.getProperty("placeholder") != null;
+            String flavor = prop.getProperty("flavor");
+            if (flavor != null) {
+                platform.flavor = flavor;
+            }
             String flavorPrefixedClassifier = prop.getProperty("classifier", "");
             String libraryList = prop.getProperty("libraries", "");
             if (libraryList.isEmpty()) {
@@ -64,23 +120,38 @@ public final class Platform {
 
             if (!flavorPrefixedClassifier.isEmpty()) {
                 String[] tokens = flavorPrefixedClassifier.split("-");
-                platform.flavor = tokens[0];
-                platform.osPrefix = tokens[1];
-                platform.osArch = tokens[2];
+                if (flavor != null) {
+                    platform.osPrefix = tokens[0];
+                    platform.osArch = tokens[1];
+                } else {
+                    platform.flavor = tokens[0];
+                    platform.osPrefix = tokens[1];
+                    platform.osArch = tokens[2];
+                }
             }
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read property file: " + url, e);
         }
         return platform;
     }
 
-    /**
-     * Returns the platform for the current system with the specified version.
-     *
-     * @param version the engine version
-     * @return the platform for the current system
-     */
-    public static Platform fromSystem(String version) {
+    private static Platform fromSystem(String engine) {
+        String engineProp = '/' + engine + "-engine.properties";
+        String versionKey = engine + "_version";
         Platform platform = fromSystem();
-        platform.version = version;
+        platform.placeholder = true;
+
+        URL url = Platform.class.getResource(engineProp);
+        if (url != null) {
+            try (InputStream is = url.openStream()) {
+                Properties prop = new Properties();
+                prop.load(is);
+                platform.version = prop.getProperty(versionKey);
+                platform.apiVersion = prop.getProperty("djl_version");
+            } catch (IOException e) {
+                throw new AssertionError("Failed to read property file: " + engineProp, e);
+            }
+        }
         return platform;
     }
 
@@ -89,7 +160,7 @@ public final class Platform {
      *
      * @return the platform for the current system
      */
-    public static Platform fromSystem() {
+    static Platform fromSystem() {
         Platform platform = new Platform();
         String osName = System.getProperty("os.name");
         if (osName.startsWith("Win")) {
@@ -124,6 +195,15 @@ public final class Platform {
     }
 
     /**
+     * Returns the Engine API version.
+     *
+     * @return the Engine API version
+     */
+    public String getApiVersion() {
+        return apiVersion;
+    }
+
+    /**
      * Returns the os (win, osx, or linux).
      *
      * @return the os (win, osx, or linux)
@@ -142,9 +222,9 @@ public final class Platform {
     }
 
     /**
-     * Returns the MXNet build flavor.
+     * Returns the engine build flavor.
      *
-     * @return the MXNet build flavor
+     * @return the engine build flavor
      */
     public String getFlavor() {
         return flavor;
@@ -193,28 +273,22 @@ public final class Platform {
      * @return true if the platforms match
      */
     public boolean matches(Platform system) {
-        return matches(system, true);
-    }
-
-    /**
-     * Returns true the platforms match (os and flavor).
-     *
-     * @param system the platform to compare it to
-     * @param strictModel cuda minor version must match
-     * @return true if the platforms match
-     */
-    public boolean matches(Platform system, boolean strictModel) {
         if (!osPrefix.equals(system.osPrefix) || !osArch.equals(system.osArch)) {
             return false;
         }
         // if system Machine is GPU
         if (system.flavor.startsWith("cu")) {
             // system flavor doesn't contain mkl, but MXNet has: cu110mkl
-            return "cpu".equals(flavor)
+            return flavor.startsWith("cpu")
                     || "mkl".equals(flavor)
-                    || flavor.startsWith(system.flavor)
-                    || (!strictModel && flavor.compareTo(system.flavor) <= 0);
+                    || flavor.startsWith(system.flavor.substring(0, 4));
         }
-        return "cpu".equals(flavor) || "mkl".equals(flavor);
+        return flavor.startsWith("cpu") || "mkl".equals(flavor);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return flavor + '-' + getClassifier() + ':' + version;
     }
 }

@@ -24,9 +24,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -78,7 +76,7 @@ public final class LibUtils {
         if (nativeLibDir == null || !nativeLibDir.toFile().isDirectory()) {
             throw new IllegalStateException("Native folder cannot be found");
         }
-        libName = copyJniLibraryFromClasspath(nativeLibDir, fallback.get());
+        libName = copyJniLibraryFromClasspath(nativeLibDir);
         logger.debug("Loading paddle library from: {}", libName);
         System.load(libName); // NOPMD
     }
@@ -133,23 +131,12 @@ public final class LibUtils {
         return null;
     }
 
-    private static String copyJniLibraryFromClasspath(Path nativeDir, boolean fallback) {
+    private static String copyJniLibraryFromClasspath(Path nativeDir) {
         String name = System.mapLibraryName(LIB_NAME);
-        Platform platform = Platform.fromSystem();
+        Platform platform = Platform.detectPlatform("paddlepaddle");
         String classifier = platform.getClassifier();
-        String flavor = platform.getFlavor();
-        if (fallback) {
-            flavor = "cpu";
-        }
-        Properties prop = new Properties();
-        try (InputStream stream =
-                LibUtils.class.getResourceAsStream("/jnilib/paddlepaddle.properties")) {
-            prop.load(stream);
-        } catch (IOException e) {
-            throw new IllegalStateException("Cannot find paddle property file", e);
-        }
-        String version = prop.getProperty("version");
-        Path path = nativeDir.resolve(version + '-' + flavor + '-' + name);
+        String djlVersion = platform.getApiVersion();
+        Path path = nativeDir.resolve(djlVersion + '-' + name);
         if (Files.exists(path)) {
             return path.toAbsolutePath().toString();
         }
@@ -176,66 +163,15 @@ public final class LibUtils {
     }
 
     private static synchronized String findLibraryInClasspath(AtomicBoolean fallback) {
-        Enumeration<URL> urls;
-        try {
-            urls =
-                    Thread.currentThread()
-                            .getContextClassLoader()
-                            .getResources("native/lib/paddlepaddle.properties");
-        } catch (IOException e) {
-            logger.warn("", e);
-            return null;
-        }
-
-        // No native jars
-        if (!urls.hasMoreElements()) {
-            String preferredVersion;
-            try (InputStream is =
-                    LibUtils.class.getResourceAsStream("/jnilib/paddlepaddle.properties")) {
-                Properties prop = new Properties();
-                prop.load(is);
-                preferredVersion = prop.getProperty("paddlepaddle_version");
-            } catch (IOException e) {
-                throw new IllegalStateException("paddlepaddle.properties not found.", e);
-            }
-            Platform platform = Platform.fromSystem(preferredVersion);
+        Platform platform = Platform.detectPlatform("paddlepaddle");
+        if (platform.isPlaceholder()) {
             return downloadLibrary(platform, fallback);
         }
-
-        Platform systemPlatform = Platform.fromSystem();
-        try {
-            Platform matching = null;
-            Platform placeholder = null;
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                Platform platform = Platform.fromUrl(url);
-                if (platform.isPlaceholder()) {
-                    placeholder = platform;
-                } else if (platform.matches(systemPlatform)) {
-                    matching = platform;
-                    break;
-                }
-            }
-
-            if (matching != null) {
-                // in case using native-cpu package on GPU machine, force set fallback to true
-                String flavor = matching.getFlavor();
-                if ("cpu".equals(flavor)) {
-                    fallback.set(true);
-                }
-                return loadLibraryFromClasspath(matching);
-            }
-
-            if (placeholder != null) {
-                return downloadLibrary(placeholder, fallback);
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException(
-                    "Failed to read PaddlePaddle native library jar properties", e);
+        String flavor = platform.getFlavor();
+        if ("cpu".equals(flavor)) {
+            fallback.set(true);
         }
-
-        throw new IllegalStateException(
-                "Your PaddlePaddle native library jar does not match your operating system. Make sure that the Maven Dependency Classifier matches your system type.");
+        return loadLibraryFromClasspath(platform);
     }
 
     private static String loadLibraryFromClasspath(Platform platform) {
@@ -344,8 +280,10 @@ public final class LibUtils {
             }
 
             tmp = Files.createTempDirectory(cacheDir, "tmp");
+            boolean found = false;
             for (String line : lines) {
                 if (line.startsWith(flavor + '/' + os + '/')) {
+                    found = true;
                     URL url = new URL(link + '/' + line);
                     String fileName = line.substring(line.lastIndexOf('/') + 1, line.length() - 3);
                     logger.info("Downloading {} ...", url);
@@ -353,6 +291,11 @@ public final class LibUtils {
                         Files.copy(fis, tmp.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
                     }
                 }
+            }
+            if (!found) {
+                throw new IllegalStateException(
+                        "No PaddlePaddle native library matches your operating system: "
+                                + platform);
             }
 
             Utils.moveQuietly(tmp, dir);

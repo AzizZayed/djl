@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
       # Enable gradle cache: https://github.com/actions/cache/blob/master/examples.md#java---gradle
       - uses: actions/cache@v2
         with:
@@ -35,72 +35,12 @@ jobs:
         run: df -h
       - name: Build with Gradle
         run: ./gradlew -Dnightly=true build jRR jRV
-      - name: API test results
-        uses: actions/upload-artifact@v1
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
         if: always()
         with:
-          name: api
-          path: api/build/reports
-      - name: basicdataset test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: basicdataset
-          path: basicdataset/build/reports
-      - name: examples test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: examples
-          path: examples/build/reports
-      - name: integration test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: integration
-          path: integration/build/reports
-      - name: model-zoo test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: model-zoo
-          path: model-zoo/build/reports
-      - name: mxnet-engine test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: mxnet-engine
-          path: engines/mxnet/mxnet-engine/build/reports
-      - name: mxnet-model-zoo test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: mxnet-model-zoo
-          path: engines/mxnet/mxnet-model-zoo/build/reports
-      - name: onnxruntime/onnxruntime-engine test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: onnxruntime
-          path: engines/onnxruntime/onnxruntime-engine/build/reports
-      - name: pytorch-engine test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: pytorch-engine
-          path: engines/pytorch/pytorch-engine/build/reports
-      - name: tensorflow-engine test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: tensorflow-engine
-          path: engines/tensorflow/tensorflow-engine/build/reports
-      - name: tensorflow-model-zoo test results
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: tensorflow-model-zoo
-          path: engines/tensorflow/tensorflow-model-zoo/build/reports
+          name: reports
+          path: ${{ github.workspace }}/**/build/reports/**/*
 
   test-pytorch:
     if: github.repository == 'deepjavalibrary/djl'
@@ -111,10 +51,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
       # Enable gradle cache: https://github.com/actions/cache/blob/master/examples.md#java---gradle
       - uses: actions/cache@v2
         with:
@@ -134,10 +74,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
       # Enable gradle cache: https://github.com/actions/cache/blob/master/examples.md#java---gradle
       - uses: actions/cache@v1
         with:
@@ -154,10 +94,10 @@ jobs:
     needs: [ build, test-pytorch, test-tensorflow ]
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
       # Enable gradle cache: https://github.com/actions/cache/blob/master/examples.md#java---gradle
       - uses: actions/cache@v2
         with:
@@ -168,7 +108,9 @@ jobs:
       - name: Publish to snapshot repository
         if: ${{ github.event.inputs.mode == '' || github.event.inputs.mode == 'snapshot' }}
         run: |
-          ./gradlew publish -Psnapshot
+          ./gradlew clean engines:pytorch:pytorch-jni:publish -Ppt_version=1.8.1 -Psnapshot
+          ./gradlew clean engines:pytorch:pytorch-jni:publish -Ppt_version=1.9.1 -Psnapshot
+          ./gradlew clean publish -Psnapshot
           cd bom
           ./gradlew publish -Psnapshot
         env:
@@ -179,7 +121,9 @@ jobs:
       - name: Publish to staging repository
         if: ${{ github.event.inputs.mode == 'staging' }}
         run: |
-          ./gradlew publish -P${{ github.event.inputs.mode }}
+          ./gradlew clean engines:pytorch:pytorch-jni:publish -Ppt_version=1.8.1 -P${{ github.event.inputs.mode }}
+          ./gradlew clean engines:pytorch:pytorch-jni:publish -Ppt_version=1.9.1 -P${{ github.event.inputs.mode }}
+          ./gradlew clean publish -P${{ github.event.inputs.mode }}
           cd bom
           ./gradlew publish -P${{ github.event.inputs.mode }}
         env:

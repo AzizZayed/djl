@@ -25,10 +25,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -79,9 +77,6 @@ public final class LibUtils {
         String libName = LibUtils.findOverrideLibrary();
         if (libName == null) {
             libName = LibUtils.findLibraryInClasspath();
-            if (libName == null) {
-                libName = LIB_NAME;
-            }
         }
         return libName;
     }
@@ -108,64 +103,15 @@ public final class LibUtils {
             overrideVersion = System.getProperty("MXNET_VERSION");
         }
         if (overrideVersion != null) {
-            Platform platform = Platform.fromSystem(overrideVersion);
+            Platform platform = Platform.detectPlatform("mxnet", overrideVersion);
             return downloadMxnet(platform);
         }
 
-        Enumeration<URL> urls;
-        try {
-            urls =
-                    Thread.currentThread()
-                            .getContextClassLoader()
-                            .getResources("native/lib/mxnet.properties");
-        } catch (IOException e) {
-            logger.warn("", e);
-            return null;
-        }
-
-        // No native jars
-        if (!urls.hasMoreElements()) {
-            String preferredVersion;
-            try (InputStream is = LibUtils.class.getResourceAsStream("/mxnet-engine.properties")) {
-                Properties prop = new Properties();
-                prop.load(is);
-                preferredVersion = prop.getProperty("mxnet_version");
-            } catch (IOException e) {
-                throw new IllegalStateException("mxnet-engine.properties not found.", e);
-            }
-            Platform platform = Platform.fromSystem(preferredVersion);
+        Platform platform = Platform.detectPlatform("mxnet");
+        if (platform.isPlaceholder()) {
             return downloadMxnet(platform);
         }
-
-        Platform systemPlatform = Platform.fromSystem();
-        try {
-            Platform matching = null;
-            Platform placeholder = null;
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                Platform platform = Platform.fromUrl(url);
-                if (platform.isPlaceholder()) {
-                    placeholder = platform;
-                } else if (platform.matches(systemPlatform)) {
-                    matching = platform;
-                    break;
-                }
-            }
-
-            if (matching != null) {
-                return loadLibraryFromClasspath(matching);
-            }
-
-            if (placeholder != null) {
-                return downloadMxnet(placeholder);
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException(
-                    "Failed to read MXNet native library jar properties", e);
-        }
-
-        throw new IllegalStateException(
-                "Your MXNet native library jar does not match your operating system. Make sure that the Maven Dependency Classifier matches your system type.");
+        return loadLibraryFromClasspath(platform);
     }
 
     private static String loadLibraryFromClasspath(Platform platform) {
@@ -254,10 +200,10 @@ public final class LibUtils {
 
         String libName = System.mapLibraryName(LIB_NAME);
         Path cacheFolder = Utils.getEngineCacheDir("mxnet");
-        logger.debug("Using cache dir: {}", cacheFolder);
         Path dir = cacheFolder.resolve(version + '-' + flavor + '-' + classifier);
         Path path = dir.resolve(libName);
         if (Files.exists(path)) {
+            logger.debug("Using cache dir: {}", dir);
             return path.toAbsolutePath().toString();
         }
 
@@ -286,8 +232,9 @@ public final class LibUtils {
                         flavor = "mkl";
                     }
                 } else if ("linux".equals(os)) {
+                    // MXNet must use exactly matched cuda minor version
                     if (!lines.contains(os + '/' + flavor + "/libmxnet.so.gz")
-                            || notSupported(platform)) {
+                            || !supported(platform)) {
                         logger.warn(
                                 "No matching cuda flavor for {} found: {}/sm_{}.",
                                 os,
@@ -300,18 +247,20 @@ public final class LibUtils {
                     throw new AssertionError("Unsupported GPU operating system: " + os);
                 }
 
-                // check again in case fallback to cpu
-                if ("mkl".equals(flavor)) {
-                    dir = cacheFolder.resolve(version + '-' + flavor + '-' + classifier);
-                    path = dir.resolve(libName);
-                    if (Files.exists(path)) {
-                        return path.toAbsolutePath().toString();
-                    }
+                // check again in case fallback to cpu or different cuda minor version
+                dir = cacheFolder.resolve(version + '-' + flavor + '-' + classifier);
+                path = dir.resolve(libName);
+                if (Files.exists(path)) {
+                    return path.toAbsolutePath().toString();
                 }
             }
 
+            logger.debug("Using cache dir: {}", dir);
+
+            boolean found = false;
             for (String line : lines) {
                 if (line.startsWith(os + "/common/") || line.startsWith(os + '/' + flavor + '/')) {
+                    found = true;
                     URL url = new URL(link + '/' + line);
                     String fileName = line.substring(line.lastIndexOf('/') + 1, line.length() - 3);
                     if ("win".equals(os)) {
@@ -330,6 +279,10 @@ public final class LibUtils {
                     }
                 }
             }
+            if (!found) {
+                throw new IllegalStateException(
+                        "No MXNet native library matches your operating system: " + platform);
+            }
 
             Utils.moveQuietly(tmp, dir);
             return path.toAbsolutePath().toString();
@@ -342,18 +295,22 @@ public final class LibUtils {
         }
     }
 
-    private static boolean notSupported(Platform platform) {
+    private static boolean supported(Platform platform) {
         // mxnet-native-cu102mkl:1.8.0: 3.0, 5.0, 6.0, 7.0, 7.5
         // mxnet-native-cu110mkl:1.8.0: 5.0, 6.0, 7.0, 8.0
-        if (platform.getVersion().startsWith("1.8.")) {
+        String version = platform.getVersion();
+        if (version.startsWith("1.8.") || version.startsWith("1.9.")) {
             String flavor = platform.getFlavor();
             String cudaArch = platform.getCudaArch();
-            if ("cu110".equals(flavor)) {
-                return !Arrays.asList("50", "60", "70", "80").contains(cudaArch);
-            } else if ("cu102".equals(flavor)) {
-                return !Arrays.asList("30", "50", "60", "70", "75").contains(cudaArch);
+            if (flavor.startsWith("cu11")) {
+                if (version.startsWith("1.8.")) {
+                    return Arrays.asList("50", "60", "70", "80").contains(cudaArch);
+                }
+                return Arrays.asList("50", "60", "70", "75", "80").contains(cudaArch);
+            } else if (flavor.startsWith("cu10")) {
+                return Arrays.asList("30", "50", "60", "70", "75").contains(cudaArch);
             }
         }
-        return false;
+        return true;
     }
 }

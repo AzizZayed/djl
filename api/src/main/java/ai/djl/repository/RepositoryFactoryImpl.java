@@ -14,6 +14,7 @@ package ai.djl.repository;
 
 import ai.djl.repository.zoo.ModelLoader;
 import ai.djl.repository.zoo.ModelZoo;
+import ai.djl.util.ClassLoaderUtils;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -137,7 +138,7 @@ class RepositoryFactoryImpl implements RepositoryFactory {
             if (p.startsWith("/")) {
                 p = p.substring(1);
             }
-            URL u = Thread.currentThread().getContextClassLoader().getResource(p);
+            URL u = ClassLoaderUtils.getContextClassLoader().getResource(p);
             if (u == null) {
                 throw new IllegalArgumentException("Resource not found: " + uri);
             }
@@ -153,6 +154,7 @@ class RepositoryFactoryImpl implements RepositoryFactory {
                 throw new IllegalArgumentException("Only archive file is supported for res URL.");
             }
 
+            fileName = FilenameUtils.getNamePart(fileName);
             return new JarRepository(name, uri, fileName);
         }
 
