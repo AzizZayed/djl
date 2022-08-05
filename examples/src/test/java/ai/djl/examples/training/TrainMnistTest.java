@@ -18,9 +18,11 @@ import ai.djl.modality.Classifications;
 import ai.djl.testing.TestRequirements;
 import ai.djl.training.TrainingResult;
 import ai.djl.translate.TranslateException;
-import java.io.IOException;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
 
 public class TrainMnistTest {
 
@@ -28,6 +30,7 @@ public class TrainMnistTest {
     public void testTrainMnist() throws ModelException, TranslateException, IOException {
         TestRequirements.engine("MXNet", "PyTorch");
 
+        double expectedProb;
         if (Boolean.getBoolean("nightly")) {
             String[] args = new String[] {"-g", "1"};
 
@@ -39,14 +42,20 @@ public class TrainMnistTest {
             Assert.assertTrue(accuracy > 0.9f, "Accuracy: " + accuracy);
             Assert.assertTrue(loss < 0.35f, "Loss: " + loss);
 
-            Classifications classifications = ImageClassification.predict();
-            Classifications.Classification best = classifications.best();
-            Assert.assertEquals(best.getClassName(), "0");
-            Assert.assertTrue(Double.compare(best.getProbability(), 0.9) > 0);
+            expectedProb = 0.9;
         } else {
             String[] args = new String[] {"-g", "1", "-m", "2"};
 
             TrainMnist.runExample(args);
+            expectedProb = 0;
         }
+
+        Classifications classifications = ImageClassification.predict();
+        Classifications.Classification best = classifications.best();
+        if (Boolean.getBoolean("nightly")) {
+            Assert.assertEquals(best.getClassName(), "0");
+        }
+        double probability = best.getProbability();
+        Assert.assertTrue(probability > expectedProb && probability <= 1);
     }
 }

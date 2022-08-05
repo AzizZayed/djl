@@ -12,8 +12,13 @@
  */
 package ai.djl.dlr.jni;
 
+import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Platform;
 import ai.djl.util.Utils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,8 +31,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for finding the DLR Engine binary on the System.
@@ -93,12 +96,9 @@ public final class LibUtils {
             Files.createDirectories(dlrCacheRoot);
             tmp = Files.createTempDirectory(dlrCacheRoot, "tmp");
             for (String file : platform.getLibraries()) {
-                String libPath = "/native/lib/" + file;
+                String libPath = "native/lib/" + file;
                 logger.info("Extracting {} to cache ...", libPath);
-                try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-                    if (is == null) {
-                        throw new IllegalStateException("native library not found: " + libPath);
-                    }
+                try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
                     Files.copy(is, tmp.resolve(file), StandardCopyOption.REPLACE_EXISTING);
                 }
             }
@@ -139,7 +139,7 @@ public final class LibUtils {
     }
 
     private static String findNativeOverrideLibrary() {
-        String libPath = System.getenv("DLR_LIBRARY_PATH");
+        String libPath = Utils.getenv("DLR_LIBRARY_PATH");
         if (libPath != null) {
             String libName = findLibraryInPath(libPath);
             if (libName != null) {
@@ -165,11 +165,8 @@ public final class LibUtils {
         }
         Path tmp = null;
         // both cpu & gpu share the same jnilib
-        String lib = "/jnilib/" + classifier + '/' + name;
-        try (InputStream is = LibUtils.class.getResourceAsStream(lib)) {
-            if (is == null) {
-                throw new UnsupportedOperationException("DLR is not supported by this platform");
-            }
+        String lib = "jnilib/" + classifier + '/' + name;
+        try (InputStream is = ClassLoaderUtils.getResourceAsStream(lib)) {
             tmp = Files.createTempFile(nativeDir, "jni", "tmp");
             Files.copy(is, tmp, StandardCopyOption.REPLACE_EXISTING);
             Utils.moveQuietly(tmp, path);

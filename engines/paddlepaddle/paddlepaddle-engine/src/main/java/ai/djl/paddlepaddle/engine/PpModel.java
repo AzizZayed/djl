@@ -19,7 +19,9 @@ import ai.djl.inference.Predictor;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.paddlepaddle.jni.JniUtils;
+import ai.djl.translate.ArgumentsUtil;
 import ai.djl.translate.Translator;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -67,7 +69,7 @@ public class PpModel extends BaseModel {
     public void load(Path modelPath, String prefix, Map<String, ?> options) throws IOException {
         setModelDir(modelPath);
         String[] modelFiles = findModelFile(modelDir);
-        if (modelFiles == null) {
+        if (modelFiles.length == 0) {
             throw new FileNotFoundException("no __model__ or model file found in: " + modelDir);
         }
         long config = JniUtils.createConfig(modelFiles[0], modelFiles[1], device);
@@ -85,10 +87,12 @@ public class PpModel extends BaseModel {
                 JniUtils.disableGLog(config);
             }
             if (options.containsKey("CMLNumThreads")) {
-                JniUtils.cpuMathLibraryNumThreads(config, (Integer) options.get("CMLNumThreads"));
+                JniUtils.cpuMathLibraryNumThreads(
+                        config, ArgumentsUtil.intValue(options, "CMLNumThreads"));
             }
             if (options.containsKey("SwitchIrOptim")) {
-                JniUtils.switchIrOptim(config, (Boolean) options.get("SwitchIrOptim"));
+                JniUtils.switchIrOptim(
+                        config, ArgumentsUtil.booleanValue(options, "SwitchIrOptim"));
             }
         }
         paddlePredictor = new PaddlePredictor(JniUtils.createPredictor(config));
@@ -116,7 +120,7 @@ public class PpModel extends BaseModel {
                 return paths;
             }
         }
-        return null;
+        return new String[0];
     }
 
     /** {@inheritDoc} */

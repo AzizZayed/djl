@@ -24,6 +24,10 @@ final class PyTorchLibrary {
 
     private PyTorchLibrary() {}
 
+    native boolean torchIsGradMode();
+
+    native void torchSetGradMode(boolean enable);
+
     native int torchGetNumInteropThreads();
 
     native int torchGetNumThreads();
@@ -31,6 +35,8 @@ final class PyTorchLibrary {
     native void torchSetNumInteropThreads(int threads);
 
     native void torchSetNumThreads(int threads);
+
+    native void torchSetBenchmarkCuDNN(boolean enable);
 
     native void torchManualSeed(long seed);
 
@@ -190,11 +196,17 @@ final class PyTorchLibrary {
             long[] maxIndices,
             long[] stepIndices);
 
+    native void torchIndexAdvPut(long handle, long torchIndexHandle, long data);
+
     native void torchSet(long handle, ByteBuffer data);
 
     native long torchSlice(long handle, long dim, long start, long end, long step);
 
     native long torchGather(long handle, long index, long dim, boolean sparseGrad);
+
+    native long torchTake(long handle, long index);
+
+    native long torchPut(long handle, long index, long data);
 
     native long torchMaskedSelect(long handle, long maskHandle);
 
@@ -354,6 +366,8 @@ final class PyTorchLibrary {
     native long torchEye(int n, int m, int dType, int layout, int[] device, boolean requiredGrad);
 
     native long torchErfinv(long handle);
+
+    native long torchInverse(long self);
 
     native long torchNNInterpolate(long handle, long[] size, int mode, boolean alignCorners);
 
@@ -518,6 +532,8 @@ final class PyTorchLibrary {
 
     native long iValueFromStringMap(String[] keys, long[] tensorHandles);
 
+    native long iValueFromStringIValueMap(String[] keys, long[] tensorHandles);
+
     native long iValueToTensor(long iValueHandle);
 
     native boolean iValueToBool(long iValueHandle);
@@ -596,4 +612,17 @@ final class PyTorchLibrary {
     native long torchNorm(long handle, int ord, long[] axis, boolean keepDims);
 
     native long torchNonZeros(long handle);
+
+    native long torchIndexInit(int size);
+
+    native long torchIndexAdvGet(long handle, long torchIndexHandle);
+
+    native void torchIndexAppendNoneEllipsis(long torchIndexHandle, boolean isEllipsis);
+
+    native void torchIndexAppendSlice(
+            long torchIndexHandle, long min, long max, long step, int nullSliceBinary);
+
+    native void torchIndexAppendFixed(long torchIndexHandle, long idx);
+
+    native void torchIndexAppendArray(long torchIndexHandle, long arrayHandle);
 }

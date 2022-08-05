@@ -63,6 +63,9 @@ task increaseFinalVersion {
         collection.each { File file ->
             file.text = file.text.replaceAll("/${previousVersion}/", "/${djl_version}/")
                     .replaceAll(">${previousVersion}<", ">${djl_version}<")
+                    .replaceAll("'${previousVersion}'", "'${djl_version}'")
+                    .replaceAll("-${previousVersion}", "-${djl_version}")
+                    .replaceAll("_${previousVersion}", "_${djl_version}")
                     .replaceAll(":${previousVersion}([\"\\\\\\n])", ":${djl_version}\$1")
         }
     }

@@ -20,6 +20,7 @@ import ai.djl.repository.Repository;
 import ai.djl.repository.zoo.BaseModelLoader;
 import ai.djl.repository.zoo.ModelLoader;
 import ai.djl.repository.zoo.ModelZoo;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -56,6 +57,9 @@ public class PtModelZoo extends ModelZoo {
 
         MRL cyclegan = REPOSITORY.model(CV.IMAGE_GENERATION, GROUP_ID, "cyclegan", "0.0.1");
         MODEL_LOADERS.add(new BaseModelLoader(cyclegan));
+
+        MRL deeplabv3 = REPOSITORY.model(CV.SEMANTIC_SEGMENTATION, GROUP_ID, "deeplabv3", "0.0.1");
+        MODEL_LOADERS.add(new BaseModelLoader(deeplabv3));
     }
 
     /** {@inheritDoc} */

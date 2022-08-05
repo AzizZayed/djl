@@ -20,9 +20,11 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.testing.Assertions;
+import ai.djl.testing.TestRequirements;
 import ai.djl.training.ParameterServer;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -30,6 +32,8 @@ public class MxParameterStoreTest {
 
     @Test
     public void testParameterStore() {
+        TestRequirements.notArm();
+
         try (Model model = Model.newInstance("model")) {
             NDManager manager = model.getNDManager();
             int numGpus = manager.getEngine().getGpuCount();

@@ -23,6 +23,7 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.translate.TranslatorContext;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -90,9 +91,11 @@ public class PtBertQATranslator extends QATranslator {
         int startIdx = (int) startLogits.argMax().getLong();
         int endIdx = (int) endLogits.argMax().getLong();
         if (startIdx >= endIdx) {
-            return "";
+            int tmp = startIdx;
+            startIdx = endIdx;
+            endIdx = tmp;
         }
-        return tokenizer.tokenToString(tokens.subList(startIdx, endIdx + 1));
+        return tokenizer.buildSentence(tokens.subList(startIdx, endIdx + 1));
     }
 
     /**

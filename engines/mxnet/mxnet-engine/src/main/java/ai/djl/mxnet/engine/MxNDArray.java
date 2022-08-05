@@ -24,8 +24,10 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.util.NativeResource;
+
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -161,6 +163,14 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
         detach();
         this.manager = (MxNDManager) manager;
         manager.attachInternal(getUid(), this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void returnResource(NDManager manager) {
+        detach();
+        this.manager = (MxNDManager) manager;
+        manager.attachUncappedInternal(getUid(), this);
     }
 
     /** {@inheritDoc} */
@@ -304,6 +314,26 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
         ByteBuffer buf = manager.allocateDirect(size * type.getNumOfBytes());
         BaseNDManager.copyBuffer(data, buf);
         JnaUtils.syncCopyFromCPU(getHandle(), buf, size);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray gather(NDArray index, int axis) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray take(NDArray index) {
+        MxOpParams params = new MxOpParams();
+        params.add("mode", "wrap");
+        return manager.invoke("take", new NDList(this.flatten(), index), params).singletonOrThrow();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray put(NDArray index, NDArray data) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -1193,6 +1223,12 @@ public class MxNDArray extends NativeResource<Pointer> implements LazyNDArray {
     @Override
     public NDArray isInfinite() {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray inverse() {
+        return manager.invoke("inverse", this, null);
     }
 
     /** {@inheritDoc} */

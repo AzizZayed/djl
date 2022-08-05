@@ -16,7 +16,7 @@ For more information, see [Hybrid Engine](../../../docs/hybrid_engine.md).
 
 ## Documentation
 
-The latest javadocs can be found on the [djl.ai website](https://javadoc.io/doc/ai.djl.onnxruntime/onnxruntime-engine/latest/index.html).
+The latest javadocs can be found on [here](https://javadoc.io/doc/ai.djl.onnxruntime/onnxruntime-engine/latest/index.html).
 
 You can also build the latest javadocs locally using the following command:
 
@@ -37,13 +37,13 @@ for the official ONNX Runtime project.
 ## Installation
 You can pull the ONNX Runtime engine from the central Maven repository by including the following dependency:
 
-- ai.djl.onnxruntime:onnxruntime-engine:0.15.0
+- ai.djl.onnxruntime:onnxruntime-engine:0.18.0
 
 ```xml
 <dependency>
     <groupId>ai.djl.onnxruntime</groupId>
     <artifactId>onnxruntime-engine</artifactId>
-    <version>0.15.0</version>
+    <version>0.18.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
@@ -61,7 +61,7 @@ Maven:
 <dependency>
     <groupId>ai.djl.onnxruntime</groupId>
     <artifactId>onnxruntime-engine</artifactId>
-    <version>0.15.0</version>
+    <version>0.18.0</version>
     <scope>runtime</scope>
     <exclusions>
         <exclusion>
@@ -73,15 +73,23 @@ Maven:
 <dependency>
     <groupId>com.microsoft.onnxruntime</groupId>
     <artifactId>onnxruntime_gpu</artifactId>
-    <version>1.10.0</version>
+    <version>1.12.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
 
 Gradle:
 ```
-    implementation("ai.djl.onnxruntime:onnxruntime-engine:0.15.0") {
+    implementation("ai.djl.onnxruntime:onnxruntime-engine:0.18.0") {
         exclude group: "com.microsoft.onnxruntime", module: "onnxruntime"
     }
-    implementation "com.microsoft.onnxruntime:onnxruntime_gpu:1.10.0"
+    implementation "com.microsoft.onnxruntime:onnxruntime_gpu:1.12.0"
+```
+
+#### Enable TensorRT execution
+
+ONNXRuntime offers TensorRT execution as the backend. In DJL, user can specify the followings in the Criteria to enable:
+
+```
+optOption("ortDevice", "TensorRT")
 ```

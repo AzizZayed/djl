@@ -13,15 +13,18 @@
 package ai.djl.huggingface.tokenizers.jni;
 
 import ai.djl.engine.EngineException;
+import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Platform;
 import ai.djl.util.Utils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Utilities for finding the Huggingface tokenizer native binary on the System. */
 @SuppressWarnings("MissingJavadocMethod")
@@ -86,12 +89,9 @@ public final class LibUtils {
             tmp = Files.createTempDirectory(cacheDir, "tmp");
 
             for (String libName : libs) {
-                String libPath = "/native/lib/" + classifier + "/" + libName;
+                String libPath = "native/lib/" + classifier + "/" + libName;
                 logger.info("Extracting {} to cache ...", libPath);
-                try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-                    if (is == null) {
-                        throw new IllegalStateException("tokenizers library not found: " + libPath);
-                    }
+                try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
                     Path target = tmp.resolve(libName);
                     Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
                 }

@@ -14,7 +14,9 @@ package ai.djl.modality.cv.output;
 
 import ai.djl.modality.Classifications;
 import ai.djl.util.JsonUtils;
+
 import com.google.gson.Gson;
+
 import java.util.List;
 
 /**
@@ -30,6 +32,7 @@ public class DetectedObjects extends Classifications {
                     .registerTypeAdapter(DetectedObjects.class, new ClassificationsSerializer())
                     .create();
 
+    @SuppressWarnings("serial")
     private List<BoundingBox> boundingBoxes;
 
     /**

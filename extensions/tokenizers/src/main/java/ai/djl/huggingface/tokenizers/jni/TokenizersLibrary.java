@@ -26,7 +26,10 @@ public final class TokenizersLibrary {
 
     public native void deleteTokenizer(long handle);
 
-    public native long encode(long tokenizer, String input, boolean addSpecialTokens);
+    public native long encode(long tokenizer, String text, boolean addSpecialTokens);
+
+    public native long encodeDual(
+            long tokenizer, String text, String textPair, boolean addSpecialTokens);
 
     public native long encodeList(long tokenizer, String[] inputs, boolean addSpecialTokens);
 
@@ -45,4 +48,18 @@ public final class TokenizersLibrary {
     public native long[] getAttentionMask(long encoding);
 
     public native long[] getSpecialTokenMask(long encoding);
+
+    public native CharSpan[] getTokenCharSpans(long encoding);
+
+    public native String decode(long tokenizer, long[] ids, boolean addSpecialTokens);
+
+    public native void disablePadding(long tokenizer);
+
+    public native void setPadding(
+            long tokenizer, long maxLength, String paddingStrategy, long padToMultipleOf);
+
+    public native void disableTruncation(long tokenizer);
+
+    public native void setTruncation(
+            long tokenizer, long maxLength, String truncationStrategy, long stride);
 }

@@ -23,6 +23,7 @@ import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
+
 import java.io.DataInputStream;
 import java.io.IOException;
 
@@ -193,6 +194,69 @@ public abstract class Convolution extends AbstractBlock {
         } else if (loadVersion != 1) {
             throw new MalformedModelException("Unsupported encoding version: " + loadVersion);
         }
+    }
+
+    /**
+     * Returns the shape of the kernel.
+     *
+     * @return the shape of the kernel
+     */
+    public Shape getKernelShape() {
+        return kernelShape;
+    }
+
+    /**
+     * Returns the stride of the convolution.
+     *
+     * @return the stride of the convolution
+     */
+    public Shape getStride() {
+        return stride;
+    }
+
+    /**
+     * Returns the padding along each dimension.
+     *
+     * @return the padding along each dimension
+     */
+    public Shape getPadding() {
+        return padding;
+    }
+
+    /**
+     * Returns the dilation along each dimension.
+     *
+     * @return the dilation along each dimension
+     */
+    public Shape getDilation() {
+        return dilation;
+    }
+
+    /**
+     * Returns the required number of filters.
+     *
+     * @return the required number of filters
+     */
+    public int getFilters() {
+        return filters;
+    }
+
+    /**
+     * Returns the number of group partitions.
+     *
+     * @return the number of group partitions
+     */
+    public int getGroups() {
+        return groups;
+    }
+
+    /**
+     * Returns whether to include a bias vector.
+     *
+     * @return whether to include a bias vector
+     */
+    public boolean isIncludeBias() {
+        return includeBias;
     }
 
     /**

@@ -22,6 +22,7 @@ import ai.djl.nn.convolutional.Conv2d;
 import ai.djl.training.ParameterStore;
 import ai.djl.training.initializer.Initializer;
 import ai.djl.util.PairList;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -250,6 +251,14 @@ public interface Block {
     Shape[] getOutputShapes(Shape[] inputShapes);
 
     /**
+     * Returns the input shapes of the block. The input shapes are only available after the block is
+     * initialized, otherwise an {@link IllegalStateException} is thrown.
+     *
+     * @return the input shapes of the block
+     */
+    Shape[] getInputShapes();
+
+    /**
      * Writes the parameters of the block to the given outputStream.
      *
      * @param os the outputstream to save the parameters to
@@ -267,6 +276,18 @@ public interface Block {
      */
     void loadParameters(NDManager manager, DataInputStream is)
             throws IOException, MalformedModelException;
+
+    /**
+     * Freezes or unfreezes all parameters inside the block for training.
+     *
+     * @param freeze true if the parameter should be frozen
+     * @see Parameter#freeze(boolean)
+     */
+    default void freezeParameters(boolean freeze) {
+        for (Parameter parameter : getParameters().values()) {
+            parameter.freeze(freeze);
+        }
+    }
 
     /**
      * Validates that actual layout matches the expected layout.

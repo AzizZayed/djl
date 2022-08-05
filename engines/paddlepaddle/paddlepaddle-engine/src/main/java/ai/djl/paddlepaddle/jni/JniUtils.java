@@ -20,6 +20,7 @@ import ai.djl.paddlepaddle.engine.PaddlePredictor;
 import ai.djl.paddlepaddle.engine.PpDataType;
 import ai.djl.paddlepaddle.engine.PpNDArray;
 import ai.djl.paddlepaddle.engine.PpNDManager;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -140,9 +141,5 @@ public final class JniUtils {
 
     public static String[] getInputNames(PaddlePredictor predictor) {
         return PaddleLibrary.LIB.getInputNames(predictor.getHandle());
-    }
-
-    public static String getVersion() {
-        return "2.0.2";
     }
 }

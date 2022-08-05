@@ -18,7 +18,9 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.util.NativeResource;
 import ai.djl.util.PairList;
 import ai.djl.util.Utils;
+
 import com.sun.jna.Pointer;
+
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -217,9 +219,6 @@ public class Symbol extends NativeResource<Pointer> {
      */
     public Map<String, Shape> inferShape(PairList<String, Shape> pairs) {
         List<List<Shape>> shapes = JnaUtils.inferShape(this, pairs);
-        if (shapes == null) {
-            throw new IllegalArgumentException("Cannot infer shape based on the data provided!");
-        }
         List<Shape> argShapes = shapes.get(0);
         List<Shape> outputShapes = shapes.get(1);
         List<Shape> auxShapes = shapes.get(2);

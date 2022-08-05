@@ -13,8 +13,10 @@
 package ai.djl.paddlepaddle.zoo.cv.objectdetection;
 
 import ai.djl.modality.cv.Image;
+import ai.djl.modality.cv.ImageFactory;
 import ai.djl.modality.cv.output.BoundingBox;
 import ai.djl.modality.cv.output.DetectedObjects;
+import ai.djl.modality.cv.output.Rectangle;
 import ai.djl.modality.cv.util.NDImageUtils;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
@@ -24,9 +26,11 @@ import ai.djl.translate.ArgumentsUtil;
 import ai.djl.translate.NoBatchifyTranslator;
 import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -50,16 +54,33 @@ public class PpWordDetectionTranslator implements NoBatchifyTranslator<Image, De
     @Override
     public DetectedObjects processOutput(TranslatorContext ctx, NDList list) {
         NDArray result = list.singletonOrThrow();
-        result = result.squeeze().mul(255f).toType(DataType.UINT8, true).neq(0);
-        boolean[] flattened = result.toBooleanArray();
-        Shape shape = result.getShape();
-        int w = (int) shape.get(0);
-        int h = (int) shape.get(1);
-        boolean[][] grid = new boolean[w][h];
-        IntStream.range(0, flattened.length)
-                .parallel()
-                .forEach(i -> grid[i / h][i % h] = flattened[i]);
-        List<BoundingBox> boxes = new BoundFinder(grid).getBoxes();
+        ImageFactory factory = ImageFactory.getInstance();
+        List<BoundingBox> boxes;
+        // faster mechanism
+        if ("ai.djl.opencv.OpenCVImageFactory".equals(factory.getClass().getName())) {
+            result = result.squeeze(0);
+            Image image = factory.fromNDArray(result);
+            boxes =
+                    image.findBoundingBoxes().parallelStream()
+                            .filter(
+                                    box -> {
+                                        Rectangle rect = (Rectangle) box;
+                                        return rect.getWidth() * image.getWidth() > 5
+                                                || rect.getHeight() * image.getHeight() > 5;
+                                    })
+                            .collect(Collectors.toList());
+        } else {
+            result = result.squeeze().mul(255f).toType(DataType.UINT8, true).neq(0);
+            boolean[] flattened = result.toBooleanArray();
+            Shape shape = result.getShape();
+            int w = (int) shape.get(0);
+            int h = (int) shape.get(1);
+            boolean[][] grid = new boolean[w][h];
+            IntStream.range(0, flattened.length)
+                    .parallel()
+                    .forEach(i -> grid[i / h][i % h] = flattened[i]);
+            boxes = new BoundFinder(grid).getBoxes();
+        }
         List<String> names = new ArrayList<>();
         List<Double> probs = new ArrayList<>();
         int boxSize = boxes.size();

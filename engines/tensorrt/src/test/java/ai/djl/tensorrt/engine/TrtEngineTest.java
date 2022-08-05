@@ -13,6 +13,7 @@
 package ai.djl.tensorrt.engine;
 
 import ai.djl.engine.Engine;
+
 import org.testng.Assert;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -28,6 +29,6 @@ public class TrtEngineTest {
         } catch (Exception ignore) {
             throw new SkipException("Your os configuration doesn't support TensorRT.");
         }
-        Assert.assertEquals(version, "8.0.1");
+        Assert.assertEquals(version, "8.4.1");
     }
 }

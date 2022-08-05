@@ -25,6 +25,10 @@ import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.tensorflow.engine.javacpp.JavacppUtils;
 import ai.djl.util.NativeResource;
 import ai.djl.util.Preconditions;
+
+import org.tensorflow.internal.c_api.TFE_TensorHandle;
+import org.tensorflow.internal.c_api.TF_Tensor;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -33,8 +37,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
-import org.tensorflow.internal.c_api.TFE_TensorHandle;
-import org.tensorflow.internal.c_api.TF_Tensor;
 
 /** {@code TfNDArray} is the TensorFlow implementation of {@link NDArray}. */
 @SuppressWarnings("PMD.UseTryWithResources")
@@ -114,13 +116,7 @@ public class TfNDArray extends NativeResource<TFE_TensorHandle> implements NDArr
     /** {@inheritDoc} */
     @Override
     public SparseFormat getSparseFormat() {
-        throw new UnsupportedOperationException("Not implemented");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isSparse() {
-        throw new UnsupportedOperationException("Not implemented");
+        return SparseFormat.DENSE;
     }
 
     /** {@inheritDoc} */
@@ -208,6 +204,24 @@ public class TfNDArray extends NativeResource<TFE_TensorHandle> implements NDArr
 
     /** {@inheritDoc} */
     @Override
+    public NDArray gather(NDArray index, int axis) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray take(NDArray index) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray put(NDArray index, NDArray data) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void attach(NDManager manager) {
         detach();
         this.manager = (TfNDManager) manager;
@@ -217,8 +231,8 @@ public class TfNDArray extends NativeResource<TFE_TensorHandle> implements NDArr
     /** {@inheritDoc} */
     @Override
     public void tempAttach(NDManager manager) {
-        detach();
         NDManager original = this.manager;
+        detach();
         this.manager = (TfNDManager) manager;
         manager.tempAttachInternal(original, getUid(), this);
     }
@@ -1321,6 +1335,12 @@ public class TfNDArray extends NativeResource<TFE_TensorHandle> implements NDArr
     @Override
     public NDArray isInfinite() {
         return manager.opExecutor("IsInf").addInput(this).buildSingletonOrThrow();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray inverse() {
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     /** {@inheritDoc} */

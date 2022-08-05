@@ -19,15 +19,18 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.util.Utils;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Path;
+
 import nu.pattern.OpenCV;
+
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
 
 /** {@code OpenCVImageFactory} is a high performance implementation of {@link ImageFactory}. */
 public class OpenCVImageFactory extends ImageFactory {
@@ -74,10 +77,16 @@ public class OpenCVImageFactory extends ImageFactory {
         Shape shape = array.getShape();
         if (shape.dimension() == 4) {
             throw new UnsupportedOperationException("Batch is not supported");
-        } else if (shape.get(0) == 1 || shape.get(2) == 1) {
-            throw new UnsupportedOperationException("Grayscale image is not supported");
-        } else if (array.getDataType() != DataType.UINT8 && array.getDataType() != DataType.INT8) {
-            throw new IllegalArgumentException("Datatype should be INT8 or UINT8");
+        }
+        array = array.toType(DataType.UINT8, false);
+        boolean grayScale = shape.get(0) == 1 || shape.get(2) == 1;
+        if (grayScale) {
+            // expected CHW
+            int width = Math.toIntExact(shape.get(2));
+            int height = Math.toIntExact(shape.get(1));
+            Mat img = new Mat(height, width, CvType.CV_8UC1);
+            img.put(0, 0, array.toByteArray());
+            return new OpenCVImage(img);
         }
         if (NDImageUtils.isCHW(shape)) {
             array = array.transpose(1, 2, 0);

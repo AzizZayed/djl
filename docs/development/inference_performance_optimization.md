@@ -12,7 +12,7 @@ memory consumption compare to Python.
 DJL `Predictor` is not designed to be thread-safe (although some implementation is),
 we recommend creating a new [Predictor](https://javadoc.io/doc/ai.djl/api/latest/ai/djl/inference/Predictor.html) for each thread.
 
-For a reference implementation, see [Multi-threaded Benchmark](https://github.com/deepjavalibrary/djl/blob/master/extensions/benchmark/src/main/java/ai/djl/benchmark/MultithreadedBenchmark.java).
+For a reference implementation, see [Multi-threaded Benchmark](https://github.com/deepjavalibrary/djl-serving/blob/master/benchmark/src/main/java/ai/djl/benchmark/MultithreadedBenchmark.java).
 
 you need to set corresponding configuration based on the engine you want to use.
 
@@ -61,6 +61,17 @@ You can enable it by
 
 You might see the exception if certain data type or operator is not supported with the oneDNN device.
 
+#### CuDNN acceleration
+PyTorch has a special flags that used for CNN or related network speed up. If your input size won't change frequently,
+you may benefit from enabling this configuration in your model:
+
+```
+-Dai.djl.pytorch.cudnn_benchmark=true
+```
+
+If your input shape changed frequently, this change may stall your performance. For more information, check this 
+[article](https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#enable-cudnn-auto-tuner).
+
 #### Thread configuration
 There are two configurations you can set to optimize the inference performance.
 
@@ -100,10 +111,11 @@ This should only be disabled when you do not have the time to "warmup" a model w
 #### Multithreading Inference
 You can follow the same steps as other engines for running multithreading inference using TensorFlow engine.
 It's recommended to use one `Predictor` for each thread and avoid using a new `Predictor` for each inference call.
-You can refer to our [Multithreading Benchmark](https://github.com/deepjavalibrary/djl/blob/master/extensions/benchmark/src/main/java/ai/djl/benchmark/MultithreadedBenchmark.java) as an example,
+You can refer to our [Multithreading Benchmark](https://github.com/deepjavalibrary/djl-serving/blob/master/benchmark/src/main/java/ai/djl/benchmark/MultithreadedBenchmark.java) as an example,
 here is how to run it using TensorFlow engine.
 
 ```bash
+cd djl-serving
 ./gradlew benchmark --args='-e TensorFlow -c 100 -t -1 -u djl://ai.djl.tensorflow/resnet/0.0.1/resnet50 -s 1,224,224,3'
 ```
 
@@ -131,3 +143,26 @@ TVM internally leverages full hardware resource. Based on our experiment, settin
 ```bash
 export TVM_NUM_THREADS=1
 ```
+
+### ONNXRuntime
+
+#### Thread configuration
+
+You can use the following settings for thread optimization in Criteria
+
+```
+.optOption("interOpNumThreads", <num_of_thread>)
+.optOption("intraOpNumThreads", <num_of_thread>)
+```
+
+Tips: Set to 1 on both of them at the beginning to see the performance. 
+Then set to total_cores/total_java_inference_thread on one of them to see how performance goes.
+
+#### (GPU) TensorRT Backend
+
+If you have tensorRT installed, you can try with the following backend on ONNXRuntime for performance optimization in Criteria
+
+```
+.optOption("ortDevice", "TensorRT")
+```
+

@@ -22,6 +22,7 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.pytorch.jni.JniUtils;
 import ai.djl.util.NativeResource;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -235,8 +236,35 @@ public class PtNDArray extends NativeResource<Long> implements NDArray {
 
     /** {@inheritDoc} */
     @Override
-    public NDArray get(long... indices) {
-        return JniUtils.getItem(this, indices);
+    public NDArray get(NDManager manager, long... indices) {
+        return JniUtils.getItem(this, indices, (PtNDManager) manager);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray gather(NDArray index, int axis) {
+        if (!(index instanceof PtNDArray)) {
+            throw new IllegalArgumentException("Only PtNDArray is supported.");
+        }
+        return JniUtils.gather(this, (PtNDArray) index, axis);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray take(NDArray index) {
+        if (!(index instanceof PtNDArray)) {
+            throw new IllegalArgumentException("Only PtNDArray is supported.");
+        }
+        return JniUtils.take(this, (PtNDArray) index);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray put(NDArray index, NDArray data) {
+        if (!(index instanceof PtNDArray) || !(data instanceof PtNDArray)) {
+            throw new IllegalArgumentException("Only PtNDArray is supported.");
+        }
+        return JniUtils.put(this, (PtNDArray) index, (PtNDArray) data);
     }
 
     /** {@inheritDoc} */
@@ -255,9 +283,17 @@ public class PtNDArray extends NativeResource<Long> implements NDArray {
 
     /** {@inheritDoc} */
     @Override
-    public void tempAttach(NDManager manager) {
+    public void returnResource(NDManager manager) {
         detach();
+        this.manager = (PtNDManager) manager;
+        manager.attachUncappedInternal(getUid(), this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void tempAttach(NDManager manager) {
         NDManager original = this.manager;
+        detach();
         this.manager = (PtNDManager) manager;
         manager.tempAttachInternal(original, getUid(), this);
     }
@@ -283,7 +319,7 @@ public class PtNDArray extends NativeResource<Long> implements NDArray {
             // Result is flattened since shape is undetermined
             return JniUtils.booleanMask(this, manager.from(index));
         } else if (indexShape.equals(getShape().slice(axis))) {
-            // index will be broadcasted by default
+            // index will be broadcast by default
             try (PtNDArray flattedResult = JniUtils.booleanMask(this, manager.from(index))) {
                 // Shape recovery
                 Shape remainder = getShape().slice(0, axis);
@@ -1190,7 +1226,8 @@ public class PtNDArray extends NativeResource<Long> implements NDArray {
         int otherDim = other.getShape().dimension();
         if (selfDim != otherDim || selfDim > 2) {
             throw new UnsupportedOperationException(
-                    "Dimension mismatch or high dimensional dot operation is not supported. Please use .matMul instead.");
+                    "Dimension mismatch or high dimensional dot operation is not supported. Please"
+                            + " use .matMul instead.");
         }
         return JniUtils.dot(this, manager.from(other));
     }
@@ -1347,6 +1384,12 @@ public class PtNDArray extends NativeResource<Long> implements NDArray {
     @Override
     public PtNDArray erfinv() {
         return JniUtils.erfinv(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PtNDArray inverse() {
+        return JniUtils.inverse(this);
     }
 
     /** {@inheritDoc} */

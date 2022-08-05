@@ -27,15 +27,18 @@ import ai.djl.training.dataset.ArrayDataset;
 import ai.djl.translate.Pipeline;
 import ai.djl.util.Progress;
 import ai.djl.util.Utils;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
 /**
  * FashMnist is a dataset from Zalando article images
- * https://github.com/zalandoresearch/fashion-mnist.
+ * (https://github.com/zalandoresearch/fashion-mnist).
  *
- * <p>Each sample is an image (in 3-D NDArray) with shape (28, 28, 1).
+ * <p>Each sample is a grayscale image (in 3-D NDArray) with shape (28, 28, 1).
+ *
+ * <p>It was created to be a drop in replacement for {@link Mnist}, but have a less simplistic task.
  */
 public final class FashionMnist extends ArrayDataset {
 

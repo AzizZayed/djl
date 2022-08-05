@@ -28,6 +28,7 @@ import ai.djl.translate.TranslatorFactory;
 import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Pair;
 import ai.djl.util.Progress;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Type;
@@ -142,7 +143,10 @@ public class BaseModelLoader implements ModelLoader {
 
             String modelName = criteria.getModelName();
             if (modelName == null) {
-                modelName = artifact.getName();
+                modelName = options.get("modelName");
+                if (modelName == null) {
+                    modelName = artifact.getName();
+                }
             }
 
             Model model =
@@ -187,13 +191,17 @@ public class BaseModelLoader implements ModelLoader {
         Model model = Model.newInstance(name, device, engine);
         if (block == null) {
             String className = (String) arguments.get("blockFactory");
-            BlockFactory factory = ClassLoaderUtils.findImplementation(modelPath, className);
+            BlockFactory factory =
+                    ClassLoaderUtils.findImplementation(modelPath, BlockFactory.class, className);
             if (factory != null) {
                 block = factory.newBlock(model, modelPath, arguments);
             }
         }
         if (block != null) {
             model.setBlock(block);
+        }
+        for (Map.Entry<String, Object> entry : arguments.entrySet()) {
+            model.setProperty(entry.getKey(), entry.getValue().toString());
         }
         return model;
     }
@@ -229,7 +237,7 @@ public class BaseModelLoader implements ModelLoader {
         String factoryClass = (String) arguments.get("translatorFactory");
         if (factoryClass != null) {
             ClassLoader cl = ClassLoaderUtils.getContextClassLoader();
-            factory = ClassLoaderUtils.initClass(cl, factoryClass);
+            factory = ClassLoaderUtils.initClass(cl, TranslatorFactory.class, factoryClass);
         }
         return factory;
     }

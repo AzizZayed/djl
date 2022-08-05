@@ -15,6 +15,10 @@ package ai.djl.repository;
 import ai.djl.Application;
 import ai.djl.repository.zoo.DefaultModelZoo;
 import ai.djl.util.Progress;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,8 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A {@code JarRepository} is a {@link Repository} contains an archive file from classpath.
@@ -38,12 +40,14 @@ public class JarRepository extends AbstractRepository {
 
     private String artifactId;
     private String modelName;
+    private String queryString;
 
     private Metadata metadata;
     private boolean resolved;
 
-    JarRepository(String name, URI uri, String fileName) {
+    JarRepository(String name, URI uri, String fileName, String queryString) {
         super(name, uri);
+        this.queryString = queryString;
         modelName = arguments.get("model_name");
         artifactId = arguments.get("artifact_id");
         if (artifactId == null) {
@@ -118,7 +122,7 @@ public class JarRepository extends AbstractRepository {
         metadata = new Metadata.MatchAllMetadata();
         metadata.setArtifactId(artifactId);
         metadata.setArtifacts(Collections.singletonList(artifact));
-        String hash = md5hash(uri.toString());
+        String hash = md5hash(queryString == null ? uri.toString() : uri.toString() + queryString);
         MRL mrl = model(Application.UNDEFINED, DefaultModelZoo.GROUP_ID, hash);
         metadata.setRepositoryUri(mrl.toURI());
 

@@ -24,12 +24,14 @@ import ai.djl.pytorch.jni.IValue;
 import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.testng.Assert;
-import org.testng.annotations.Test;
 
 public class IValueTest {
 
@@ -119,6 +121,18 @@ public class IValueTest {
                 NDList list = ivalue.toNDList(manager);
                 Assert.assertEquals(list.size(), 2);
                 Assert.assertEquals(list.get("data1"), array1);
+            }
+
+            // (Dict(str, Tensor[])
+            Map<String, IValue> iValueMap = new ConcurrentHashMap<>();
+            try (IValue v1 = IValue.listFrom(array1);
+                    IValue v2 = IValue.listFrom(array2)) {
+                iValueMap.put("data1", v1);
+                iValueMap.put("data2", v2);
+                try (IValue ivalue = IValue.stringIValueMapFrom(iValueMap)) {
+                    Assert.assertTrue(ivalue.isMap());
+                    Assert.assertEquals(ivalue.getType(), "Dict(str, Tensor[])");
+                }
             }
 
             try (IValue iv1 = IValue.from(1);

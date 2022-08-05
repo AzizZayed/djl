@@ -22,12 +22,15 @@ import ai.djl.pytorch.jni.JniUtils;
 import ai.djl.pytorch.jni.LibUtils;
 import ai.djl.training.GradientCollector;
 import ai.djl.util.RandomUtils;
+import ai.djl.util.Utils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The {@code PtEngine} is an implementation of the {@link Engine} based on the <a
@@ -48,6 +51,7 @@ public final class PtEngine extends Engine {
     static Engine newInstance() {
         try {
             LibUtils.loadLibrary();
+            JniUtils.setGradMode(false);
             if (Integer.getInteger("ai.djl.pytorch.num_interop_threads") != null) {
                 JniUtils.setNumInteropThreads(
                         Integer.getInteger("ai.djl.pytorch.num_interop_threads"));
@@ -55,10 +59,14 @@ public final class PtEngine extends Engine {
             if (Integer.getInteger("ai.djl.pytorch.num_threads") != null) {
                 JniUtils.setNumThreads(Integer.getInteger("ai.djl.pytorch.num_threads"));
             }
+            // for ConvNN related model speed up
+            if (Boolean.getBoolean("ai.djl.pytorch.cudnn_benchmark")) {
+                JniUtils.setBenchmarkCuDNN(true);
+            }
             logger.info("Number of inter-op threads is " + JniUtils.getNumInteropThreads());
             logger.info("Number of intra-op threads is " + JniUtils.getNumThreads());
 
-            String paths = System.getenv("PYTORCH_EXTRA_LIBRARY_PATH");
+            String paths = Utils.getenv("PYTORCH_EXTRA_LIBRARY_PATH");
             if (paths == null) {
                 paths = System.getProperty("PYTORCH_EXTRA_LIBRARY_PATH");
             }

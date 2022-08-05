@@ -19,6 +19,10 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.util.Float16Utils;
 import ai.djl.util.PairList;
 import ai.djl.util.RandomUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
@@ -31,8 +35,6 @@ import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** {@code BaseNDManager} is the default implementation of {@link NDManager}. */
 public abstract class BaseNDManager implements NDManager {
@@ -47,6 +49,7 @@ public abstract class BaseNDManager implements NDManager {
     protected ConcurrentHashMap<String, AutoCloseable> resources;
     protected ConcurrentHashMap<String, TempResource> tempResources;
     protected AtomicBoolean closed = new AtomicBoolean(false);
+    protected AtomicBoolean capped = new AtomicBoolean(false);
 
     protected BaseNDManager(NDManager parent, Device device) {
         this.parent = parent;
@@ -237,6 +240,12 @@ public abstract class BaseNDManager implements NDManager {
 
     /** {@inheritDoc} */
     @Override
+    public void cap() {
+        this.capped.set(true);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public NDManager getParentManager() {
         return parent;
     }
@@ -270,6 +279,15 @@ public abstract class BaseNDManager implements NDManager {
     /** {@inheritDoc} */
     @Override
     public synchronized void attachInternal(String resourceId, AutoCloseable resource) {
+        if (capped.get()) {
+            throw new IllegalStateException("NDManager is capped for addition of resources.");
+        }
+        attachUncappedInternal(resourceId, resource);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public synchronized void attachUncappedInternal(String resourceId, AutoCloseable resource) {
         if (closed.get()) {
             throw new IllegalStateException("NDManager has been closed already.");
         }
@@ -395,7 +413,8 @@ public abstract class BaseNDManager implements NDManager {
         }
         if (remaining > expectedSize) {
             logger.warn(
-                    "Input buffer size is greater than the NDArray size, please set limit explicitly.");
+                    "Input buffer size is greater than the NDArray size, please set limit"
+                            + " explicitly.");
             buffer.limit(expectedSize);
         }
     }
@@ -452,7 +471,7 @@ public abstract class BaseNDManager implements NDManager {
             try {
                 if (!detached) {
                     if (manager.isOpen()) {
-                        resource.attach(manager);
+                        resource.returnResource(manager);
                     } else {
                         resource.close();
                     }

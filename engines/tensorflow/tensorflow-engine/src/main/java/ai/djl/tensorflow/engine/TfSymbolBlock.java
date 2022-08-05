@@ -19,17 +19,13 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractSymbolBlock;
+import ai.djl.nn.ParameterList;
 import ai.djl.nn.SymbolBlock;
 import ai.djl.tensorflow.engine.javacpp.JavacppUtils;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.Pair;
 import ai.djl.util.PairList;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
 import org.bytedeco.javacpp.Pointer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +37,13 @@ import org.tensorflow.proto.framework.MetaGraphDef;
 import org.tensorflow.proto.framework.SignatureDef;
 import org.tensorflow.proto.framework.TensorInfo;
 import org.tensorflow.proto.framework.TensorShapeProto;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** {@code TfSymbolBlock} is the TensorFlow implementation of {@link SymbolBlock}. */
 public class TfSymbolBlock extends AbstractSymbolBlock implements AutoCloseable {
@@ -76,10 +79,12 @@ public class TfSymbolBlock extends AbstractSymbolBlock implements AutoCloseable 
                             + "not found in Saved Model Bundle."
                             + "Available keys: "
                             + String.join(" ", keys)
-                            + "Please use .optOption(\"SignatureDefKey\", \"value\") with Criteria.builder to load the model."
-                            + "Normally the value is \"default\" for TF1.x models and \"serving_default\" for TF2.x models. "
-                            + "Refer to: https://www.tensorflow.org/guide/saved_model"
-                            + "Loading the model using next available key.");
+                            + "Please use .optOption(\"SignatureDefKey\", \"value\") with"
+                            + " Criteria.builder to load the model.Normally the value is"
+                            + " \"default\" for TF1.x models and \"serving_default\" for TF2.x"
+                            + " models. Refer to:"
+                            + " https://www.tensorflow.org/guide/saved_modelLoading the model using"
+                            + " next available key.");
             servingDefault = signatureDefMap.get(keys.iterator().next());
         }
         describeInput();
@@ -178,9 +183,7 @@ public class TfSymbolBlock extends AbstractSymbolBlock implements AutoCloseable 
                 inputDescriptions.add(
                         keys.get(i),
                         new Shape(
-                                shapeProto
-                                        .getDimList()
-                                        .stream()
+                                shapeProto.getDimList().stream()
                                         .mapToLong(TensorShapeProto.Dim::getSize)
                                         .toArray()));
                 Pair<TF_Operation, Integer> pair =
@@ -190,6 +193,12 @@ public class TfSymbolBlock extends AbstractSymbolBlock implements AutoCloseable 
             }
         }
         return inputDescriptions;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ParameterList getDirectParameters() {
+        throw new UnsupportedOperationException("Not yet supported");
     }
 
     /** {@inheritDoc} */
@@ -213,9 +222,7 @@ public class TfSymbolBlock extends AbstractSymbolBlock implements AutoCloseable 
                 outputDescriptions.add(
                         key,
                         new Shape(
-                                shapeProto
-                                        .getDimList()
-                                        .stream()
+                                shapeProto.getDimList().stream()
                                         .mapToLong(TensorShapeProto.Dim::getSize)
                                         .toArray()));
                 Pair<TF_Operation, Integer> pair =

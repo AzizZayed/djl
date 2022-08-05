@@ -27,12 +27,16 @@ import ai.djl.training.dataset.ArrayDataset;
 import ai.djl.translate.Pipeline;
 import ai.djl.util.Progress;
 import ai.djl.util.Utils;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
 /**
  * CIFAR10 image classification dataset from https://www.cs.toronto.edu/~kriz/cifar.html.
+ *
+ * <p>It consists of 60,000 32x32 color images with 10 classes. It can train in a few hours with a
+ * GPU.
  *
  * <p>Each sample is an image (in 3-D {@link NDArray}) with shape (32, 32, 3).
  */

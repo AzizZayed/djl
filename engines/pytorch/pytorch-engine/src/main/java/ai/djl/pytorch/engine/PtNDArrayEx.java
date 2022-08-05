@@ -23,6 +23,7 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.nn.recurrent.RNN;
 import ai.djl.pytorch.jni.JniUtils;
+
 import java.util.List;
 
 /** {@code PtNDArrayEx} is the PyTorch implementation of the {@link NDArrayEx}. */
@@ -624,8 +625,8 @@ public class PtNDArrayEx implements NDArrayEx {
 
     /** {@inheritDoc} */
     @Override
-    public NDArrayIndexer getIndexer() {
-        return new PtNDArrayIndexer(array.getManager());
+    public NDArrayIndexer getIndexer(NDManager manager) {
+        return new PtNDArrayIndexer((PtNDManager) manager);
     }
 
     /** {@inheritDoc} */

@@ -14,6 +14,7 @@
 package ai.djl;
 
 import ai.djl.engine.Engine;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -40,9 +41,7 @@ public class DeviceTest {
     @Test
     public void testDeviceName() {
         Assert.assertEquals(Device.fromName("cpu"), Device.cpu());
-        Assert.assertEquals(Device.fromName(""), Device.cpu());
         Assert.assertEquals(Device.fromName("-1"), Device.cpu());
-        Assert.assertEquals(Device.fromName(null), Device.cpu());
 
         Assert.assertEquals(Device.fromName("gpu0"), Device.gpu());
         Assert.assertEquals(Device.fromName("0"), Device.gpu());
@@ -50,5 +49,9 @@ public class DeviceTest {
 
         Assert.assertEquals(Device.fromName("nc1"), Device.of("nc", 1));
         Assert.assertEquals(Device.fromName("a999"), Device.of("a", 999));
+
+        Device defaultDevice = Engine.getInstance().defaultDevice();
+        Assert.assertEquals(Device.fromName(""), defaultDevice);
+        Assert.assertEquals(Device.fromName(null), defaultDevice);
     }
 }

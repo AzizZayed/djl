@@ -28,6 +28,10 @@ import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,8 +39,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public final class SuperResolution {
 
@@ -93,7 +95,6 @@ public final class SuperResolution {
             }
 
             return stitches.stream()
-                    .map(array -> array.toType(DataType.UINT8, false))
                     .map(array -> ImageFactory.getInstance().fromNDArray(array))
                     .collect(Collectors.toList());
         }

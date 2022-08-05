@@ -12,25 +12,27 @@
  */
 package ai.djl.mxnet.integration.modality.nlp;
 
-import ai.djl.MalformedModelException;
+import ai.djl.ModelException;
 import ai.djl.modality.nlp.embedding.EmbeddingException;
 import ai.djl.modality.nlp.embedding.ModelZooTextEmbedding;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.repository.zoo.Criteria;
-import ai.djl.repository.zoo.ModelNotFoundException;
 import ai.djl.repository.zoo.ZooModel;
-import java.io.IOException;
-import java.util.Collections;
+import ai.djl.testing.TestRequirements;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.util.Collections;
 
 public class WordEmbeddingTest {
 
     @Test
-    public void testGlove()
-            throws IOException, ModelNotFoundException, MalformedModelException,
-                    EmbeddingException {
+    public void testGlove() throws IOException, ModelException, EmbeddingException {
+        TestRequirements.notArm();
+
         Criteria<String, NDList> criteria =
                 Criteria.builder()
                         .setTypes(String.class, NDList.class)

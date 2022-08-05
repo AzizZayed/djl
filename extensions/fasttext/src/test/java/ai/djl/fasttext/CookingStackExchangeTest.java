@@ -32,6 +32,12 @@ import ai.djl.repository.zoo.ZooModel;
 import ai.djl.testing.TestRequirements;
 import ai.djl.training.TrainingResult;
 import ai.djl.translate.TranslateException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -42,18 +48,15 @@ import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.Test;
 
 public class CookingStackExchangeTest {
 
     private static final Logger logger = LoggerFactory.getLogger(CookingStackExchangeTest.class);
 
     @Test
-    public void testTrainTextClassification() throws IOException, TranslateException {
+    public void testTrainTextClassification() throws IOException {
         TestRequirements.notWindows(); // fastText is not supported on windows
+        TestRequirements.notArm();
 
         CookingStackExchange dataset = CookingStackExchange.builder().build();
 
@@ -77,6 +80,7 @@ public class CookingStackExchangeTest {
             throws IOException, MalformedModelException, ModelNotFoundException,
                     TranslateException {
         TestRequirements.notWindows(); // fastText is not supported on windows
+        TestRequirements.notArm();
 
         Criteria<String, Classifications> criteria =
                 Criteria.builder()
@@ -102,6 +106,7 @@ public class CookingStackExchangeTest {
     @Test
     public void testWord2Vec() throws IOException, MalformedModelException, ModelNotFoundException {
         TestRequirements.notWindows(); // fastText is not supported on windows
+        TestRequirements.notArm();
 
         Criteria<String, Classifications> criteria =
                 Criteria.builder()
@@ -124,6 +129,7 @@ public class CookingStackExchangeTest {
     @Test
     public void testBlazingText() throws IOException, ModelException {
         TestRequirements.notWindows(); // fastText is not supported on windows
+        TestRequirements.notArm();
         TestRequirements.nightly();
 
         URL url = new URL("https://resources.djl.ai/test-models/blazingtext_classification.bin");
@@ -139,7 +145,8 @@ public class CookingStackExchangeTest {
         try (FtModel model = new FtModel("text_classification")) {
             model.load(modelFile);
             String text =
-                    "Convair was an american aircraft manufacturing company which later expanded into rockets and spacecraft .";
+                    "Convair was an american aircraft manufacturing company which later expanded"
+                            + " into rockets and spacecraft .";
             Classifications result = ((FtTextClassification) model.getBlock()).classify(text, 5);
 
             logger.info("{}", result);

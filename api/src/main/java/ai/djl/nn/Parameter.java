@@ -19,6 +19,7 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.training.initializer.Initializer;
 import ai.djl.training.initializer.XavierInitializer;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -131,6 +132,22 @@ public class Parameter implements AutoCloseable {
      */
     public boolean requiresGradient() {
         return requiresGrad;
+    }
+
+    /**
+     * Freezes or unfreezes the parameter for training.
+     *
+     * <p>Sometimes during training, especially during transfer learning, it is typical to train
+     * only part of the model. For this, the freeze can be used to prevent certain parts from being
+     * trained.
+     *
+     * <p>This modifies the {@link #requiresGradient()} of the parameter.
+     *
+     * @param freeze true if the parameter should be frozen ({@code freeze == !requiresGradient()})
+     */
+    public void freeze(boolean freeze) {
+        requiresGrad = !freeze;
+        array.setRequiresGradient(requiresGrad);
     }
 
     /**

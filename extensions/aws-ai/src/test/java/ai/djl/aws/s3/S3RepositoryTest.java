@@ -21,14 +21,17 @@ import ai.djl.repository.Repository;
 import ai.djl.repository.zoo.Criteria;
 import ai.djl.repository.zoo.ModelNotFoundException;
 import ai.djl.repository.zoo.ZooModel;
-import java.io.IOException;
-import java.util.List;
+
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+
+import java.io.IOException;
+import java.util.List;
 
 public class S3RepositoryTest {
 
@@ -51,13 +54,12 @@ public class S3RepositoryTest {
         Criteria<NDList, NDList> criteria =
                 Criteria.builder()
                         .setTypes(NDList.class, NDList.class)
-                        .optModelUrls(
-                                "s3://djl-ai/mlrepo/model/cv/image_classification/ai/djl/mxnet/mlp/0.0.1")
-                        .optModelName("mlp")
+                        .optModelUrls("s3://djl-ai/resources/demo/pytorch/traced_resnet18")
+                        .optModelName("traced_resnet18")
                         .build();
 
         try (ZooModel<NDList, NDList> model = criteria.loadModel()) {
-            Assert.assertEquals(model.getName(), "mlp");
+            Assert.assertEquals(model.getName(), "traced_resnet18");
         }
     }
 
@@ -75,12 +77,12 @@ public class S3RepositoryTest {
         Criteria<NDList, NDList> criteria =
                 Criteria.builder()
                         .setTypes(NDList.class, NDList.class)
-                        .optModelUrls("s3://djl-ai/resources/test-models/mlp.tar.gz")
-                        .optModelName("mlp")
+                        .optModelUrls("s3://djl-ai/resources/demo/pytorch/traced_resnet18.zip")
+                        .optModelName("traced_resnet18")
                         .build();
 
         try (ZooModel<NDList, NDList> model = criteria.loadModel()) {
-            Assert.assertEquals(model.getName(), "mlp");
+            Assert.assertEquals(model.getName(), "traced_resnet18");
         }
     }
 

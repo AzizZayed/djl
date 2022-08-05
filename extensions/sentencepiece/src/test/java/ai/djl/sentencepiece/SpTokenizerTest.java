@@ -15,20 +15,24 @@ package ai.djl.sentencepiece;
 
 import ai.djl.testing.TestRequirements;
 import ai.djl.training.util.DownloadUtils;
+
+import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import org.testng.Assert;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
 
 public class SpTokenizerTest {
 
     @BeforeTest
     public void downloadModel() throws IOException {
+        TestRequirements.notArm();
+
         Path modelFile = Paths.get("build/test/sp_model/sp_model.model");
         if (Files.notExists(modelFile)) {
             DownloadUtils.download(

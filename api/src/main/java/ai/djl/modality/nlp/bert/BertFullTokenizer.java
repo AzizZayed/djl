@@ -21,6 +21,7 @@ import ai.djl.modality.nlp.preprocess.SimpleTokenizer;
 import ai.djl.modality.nlp.preprocess.TextCleaner;
 import ai.djl.modality.nlp.preprocess.TextProcessor;
 import ai.djl.modality.nlp.preprocess.UnicodeNormalizer;
+
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -75,7 +76,7 @@ public class BertFullTokenizer extends BertTokenizer {
 
     /** {@inheritDoc} */
     @Override
-    public String tokenToString(List<String> tokens) {
+    public String buildSentence(List<String> tokens) {
         return String.join(" ", tokens).replace(" ##", "").trim();
     }
 

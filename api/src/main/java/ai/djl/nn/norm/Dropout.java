@@ -20,6 +20,7 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
+
 import java.io.DataInputStream;
 import java.io.IOException;
 
@@ -88,12 +89,6 @@ public class Dropout extends AbstractBlock {
         } else if (loadVersion != 1) {
             throw new MalformedModelException("Unsupported encoding version: " + loadVersion);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "Dropout()";
     }
 
     /**

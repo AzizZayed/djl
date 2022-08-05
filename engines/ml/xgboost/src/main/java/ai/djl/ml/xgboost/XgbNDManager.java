@@ -20,17 +20,25 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
+import ai.djl.util.JsonUtils;
+
+import com.google.gson.JsonArray;
+
+import ml.dmlc.xgboost4j.java.ColumnBatch;
+import ml.dmlc.xgboost4j.java.JniUtils;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
-import ml.dmlc.xgboost4j.java.JniUtils;
 
 /** {@code XgbNDManager} is the XGBoost implementation of {@link NDManager}. */
 public class XgbNDManager extends BaseNDManager {
 
     private static final XgbNDManager SYSTEM_MANAGER = new SystemManager();
+
+    private float missingValue = Float.NaN;
 
     private XgbNDManager(NDManager parent, Device device) {
         super(parent, device);
@@ -38,6 +46,15 @@ public class XgbNDManager extends BaseNDManager {
 
     static XgbNDManager getSystemManager() {
         return SYSTEM_MANAGER;
+    }
+
+    /**
+     * Sets the default missing value.
+     *
+     * @param missingValue the default missing value
+     */
+    public void setMissingValue(float missingValue) {
+        this.missingValue = missingValue;
     }
 
     /** {@inheritDoc} */
@@ -69,6 +86,30 @@ public class XgbNDManager extends BaseNDManager {
         return Engine.getEngine(XgbEngine.ENGINE_NAME);
     }
 
+    /**
+     * Creates {@link XgbNDArray} from column array interface.
+     *
+     * @param columnBatch – the XGBoost ColumnBatch to provide the cuda array interface of feature
+     *     columns
+     * @param missing – missing value
+     * @param nthread – threads number
+     * @return a new instance of {@link NDArray}
+     */
+    public NDArray create(ColumnBatch columnBatch, float missing, int nthread) {
+        columnBatch.getFeatureArrayInterface();
+        String json = columnBatch.getFeatureArrayInterface();
+        JsonArray array = JsonUtils.GSON.fromJson(json, JsonArray.class);
+        JsonArray shapeJson = array.get(0).getAsJsonObject().get("shape").getAsJsonArray();
+        long[] shapes = new long[shapeJson.size()];
+        for (int i = 0; i < shapes.length; ++i) {
+            shapes[i] = shapeJson.get(i).getAsLong();
+        }
+
+        Shape shape = new Shape(shapes);
+        long handle = JniUtils.createDMatrix(columnBatch, missing, nthread);
+        return new XgbNDArray(this, alternativeManager, handle, shape, SparseFormat.DENSE);
+    }
+
     /** {@inheritDoc} */
     @Override
     public NDArray create(Buffer data, Shape shape, DataType dataType) {
@@ -95,7 +136,7 @@ public class XgbNDManager extends BaseNDManager {
 
         if (data.isDirect() && data instanceof ByteBuffer) {
             // TODO: allow user to set missing value
-            long handle = JniUtils.createDMatrix(data, shape, 0.0f);
+            long handle = JniUtils.createDMatrix(data, shape, missingValue);
             return new XgbNDArray(this, alternativeManager, handle, shape, SparseFormat.DENSE);
         }
 
@@ -109,7 +150,7 @@ public class XgbNDManager extends BaseNDManager {
         ByteBuffer buf = allocateDirect(size);
         buf.asFloatBuffer().put((FloatBuffer) data);
         buf.rewind();
-        long handle = JniUtils.createDMatrix(buf, shape, 0.0f);
+        long handle = JniUtils.createDMatrix(buf, shape, missingValue);
         return new XgbNDArray(this, alternativeManager, handle, shape, SparseFormat.DENSE);
     }
 

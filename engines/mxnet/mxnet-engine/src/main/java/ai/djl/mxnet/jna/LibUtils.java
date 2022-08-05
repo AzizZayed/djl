@@ -12,10 +12,16 @@
  */
 package ai.djl.mxnet.jna;
 
+import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Platform;
 import ai.djl.util.Utils;
+
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,8 +37,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for finding the MXNet Engine binary on the System.
@@ -82,7 +86,7 @@ public final class LibUtils {
     }
 
     private static String findOverrideLibrary() {
-        String libPath = System.getenv("MXNET_LIBRARY_PATH");
+        String libPath = Utils.getenv("MXNET_LIBRARY_PATH");
         if (libPath != null) {
             String libName = findLibraryInPath(libPath);
             if (libName != null) {
@@ -98,7 +102,7 @@ public final class LibUtils {
     }
 
     private static synchronized String findLibraryInClasspath() {
-        String overrideVersion = System.getenv("MXNET_VERSION");
+        String overrideVersion = Utils.getenv("MXNET_VERSION");
         if (overrideVersion == null) {
             overrideVersion = System.getProperty("MXNET_VERSION");
         }
@@ -137,12 +141,9 @@ public final class LibUtils {
             Files.createDirectories(cacheFolder);
             tmp = Files.createTempDirectory(cacheFolder, "tmp");
             for (String file : platform.getLibraries()) {
-                String libPath = "/native/lib/" + file;
+                String libPath = "native/lib/" + file;
                 logger.info("Extracting {} to cache ...", libPath);
-                try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-                    if (is == null) {
-                        throw new IllegalStateException("MXNet library not found: " + libPath);
-                    }
+                try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
                     Files.copy(is, tmp.resolve(file), StandardCopyOption.REPLACE_EXISTING);
                 }
             }

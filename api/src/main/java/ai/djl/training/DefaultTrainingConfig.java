@@ -22,6 +22,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Adam;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.util.PairList;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -198,6 +199,7 @@ public class DefaultTrainingConfig implements TrainingConfig {
         return loss;
     }
 
+    /** {@inheritDoc} */
     @Override
     public ExecutorService getExecutorService() {
         return executorService;

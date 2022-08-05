@@ -16,9 +16,11 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.testing.Assertions;
-import java.util.stream.DoubleStream;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.stream.DoubleStream;
 
 public class NDArrayNumericOpTest {
 
@@ -340,7 +342,7 @@ public class NDArrayNumericOpTest {
             array = manager.create(data, new Shape(2, 3));
             data = DoubleStream.of(data).map(Math::sin).toArray();
             expected = manager.create(data, new Shape(2, 3));
-            Assert.assertEquals(array.sin(), expected);
+            Assertions.assertAlmostEquals(array.sin(), expected);
             // test scalar
             array = manager.create(0.5 * Math.PI);
             expected = manager.create(1.0);

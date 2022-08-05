@@ -18,6 +18,7 @@ import ai.djl.ndarray.internal.NDArrayEx;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
+
 import java.nio.Buffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -73,6 +74,7 @@ public abstract class NDArrayAdapter implements NDArray {
         manager.attachInternal(getUid(), this);
         alternativeManager = ((BaseNDManager) manager).getAlternativeManager();
         if (alternativeManager == null) {
+            // to prevent hybrid engine memory leak
             alternativeManager = manager;
         }
     }
@@ -80,8 +82,8 @@ public abstract class NDArrayAdapter implements NDArray {
     /** {@inheritDoc} */
     @Override
     public void tempAttach(NDManager manager) {
-        detach();
         NDManager original = this.manager;
+        detach();
         this.manager = manager;
         manager.tempAttachInternal(original, getUid(), this);
     }
@@ -131,19 +133,26 @@ public abstract class NDArrayAdapter implements NDArray {
     /** {@inheritDoc} */
     @Override
     public NDArray toDevice(Device device, boolean copy) {
-        if (device.equals(getDevice()) && !copy) {
+        if (device.equals(getDevice())) {
+            if (copy) {
+                return duplicate();
+            }
             return this;
         }
-        return duplicate();
+        throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
 
     /** {@inheritDoc} */
     @Override
     public NDArray toType(DataType dataType, boolean copy) {
-        if (dataType.equals(getDataType()) && !copy) {
+        if (dataType.equals(getDataType())) {
+            if (copy) {
+                return duplicate();
+            }
             return this;
         }
-        return duplicate();
+        // TODO: each engine should override this method
+        throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
 
     /** {@inheritDoc} */
@@ -174,6 +183,30 @@ public abstract class NDArrayAdapter implements NDArray {
     @Override
     public String[] toStringArray(Charset charset) {
         throw new UnsupportedOperationException(UNSUPPORTED_MSG);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray gather(NDArray index, int axis) {
+        throw new UnsupportedOperationException(UNSUPPORTED_MSG);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray take(NDArray index) {
+        throw new UnsupportedOperationException(UNSUPPORTED_MSG);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray put(NDArray index, NDArray data) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray get(NDIndex index) {
+        return get(alternativeManager, index);
     }
 
     /** {@inheritDoc} */
@@ -1025,6 +1058,12 @@ public abstract class NDArrayAdapter implements NDArray {
 
     /** {@inheritDoc} */
     @Override
+    public NDArray inverse() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public NDArray norm(boolean keepDims) {
         return getAlternativeArray().norm(keepDims);
     }
@@ -1050,7 +1089,11 @@ public abstract class NDArrayAdapter implements NDArray {
     /** {@inheritDoc} */
     @Override
     public NDArrayEx getNDArrayInternal() {
-        return getAlternativeArray().getNDArrayInternal();
+        NDArray array = getAlternativeArray();
+        if (array instanceof NDArrayAdapter) {
+            throw new UnsupportedOperationException("Operation not supported.");
+        }
+        return array.getNDArrayInternal();
     }
 
     /** {@inheritDoc} */
@@ -1058,11 +1101,11 @@ public abstract class NDArrayAdapter implements NDArray {
     public void close() {
         if (!isClosed) {
             manager.detachInternal(getUid());
+            isClosed = true;
             if (alternativeArray != null) {
                 alternativeArray.close();
                 alternativeArray = null;
             }
-            isClosed = true;
         }
     }
 

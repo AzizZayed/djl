@@ -23,6 +23,7 @@ import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
+
 import java.util.Collections;
 
 /**
@@ -115,6 +116,7 @@ public final class IdEmbedding extends AbstractBlock {
         return ps.getValue(embedding, device, training);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
         inputNames = Collections.singletonList("tokenIds");

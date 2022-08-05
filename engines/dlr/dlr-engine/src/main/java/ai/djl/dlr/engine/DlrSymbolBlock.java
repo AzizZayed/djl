@@ -16,9 +16,11 @@ package ai.djl.dlr.engine;
 import ai.djl.dlr.jni.JniUtils;
 import ai.djl.ndarray.NDList;
 import ai.djl.nn.AbstractSymbolBlock;
+import ai.djl.nn.ParameterList;
 import ai.djl.nn.SymbolBlock;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
+
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -74,5 +76,11 @@ public class DlrSymbolBlock extends AbstractSymbolBlock implements AutoCloseable
         if (pointer != null) {
             JniUtils.deleteDlrModel(pointer);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ParameterList getDirectParameters() {
+        throw new UnsupportedOperationException("Not yet supported");
     }
 }

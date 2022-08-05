@@ -17,29 +17,29 @@ import ai.djl.ndarray.NDArray;
 /** An {@link NDIndexElement} that gets elements by index in the specified axis. */
 public class NDIndexPick implements NDIndexElement {
 
-    private NDArray indices;
+    private NDArray index;
 
     /**
      * Constructs a pick.
      *
-     * @param indices the indices to pick
+     * @param index the index to pick
      */
-    public NDIndexPick(NDArray indices) {
-        this.indices = indices;
+    public NDIndexPick(NDArray index) {
+        this.index = index;
     }
 
-    @Override
     /** {@inheritDoc} */
+    @Override
     public int getRank() {
         return 1;
     }
 
     /**
-     * Returns the indices to pick.
+     * Returns the index to pick.
      *
-     * @return the indices to pick
+     * @return the index to pick
      */
-    public NDArray getIndices() {
-        return indices;
+    public NDArray getIndex() {
+        return index;
     }
 }

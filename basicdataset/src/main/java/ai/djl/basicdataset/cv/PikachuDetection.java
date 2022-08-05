@@ -26,7 +26,9 @@ import ai.djl.translate.Pipeline;
 import ai.djl.util.JsonUtils;
 import ai.djl.util.PairList;
 import ai.djl.util.Progress;
+
 import com.google.gson.reflect.TypeToken;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Type;
@@ -39,7 +41,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Pikachu image detection dataset that contains multiple Pikachus in each image. */
+/**
+ * Pikachu image detection dataset that contains multiple Pikachus in each image.
+ *
+ * <p>It was based on a section from the [Dive into Deep Learning
+ * book](http://d2l.ai/chapter_computer-vision/object-detection-dataset.html). It contains 1000
+ * Pikachu images of different angles and sizes created using an open source 3D Pikachu model. Each
+ * image contains only a single pikachu.
+ */
 public class PikachuDetection extends ObjectDetectionDataset {
 
     private static final String VERSION = "1.0";
@@ -112,6 +121,7 @@ public class PikachuDetection extends ObjectDetectionDataset {
         prepared = true;
     }
 
+    /** {@inheritDoc} */
     @Override
     public PairList<Long, Rectangle> getObjects(long index) {
         return new PairList<>(Collections.singletonList(labels.get((int) index)));
@@ -129,11 +139,13 @@ public class PikachuDetection extends ObjectDetectionDataset {
         return ImageFactory.getInstance().fromFile(imagePaths.get(idx));
     }
 
+    /** {@inheritDoc} */
     @Override
     public Optional<Integer> getImageWidth() {
         return Optional.empty();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Optional<Integer> getImageHeight() {
         return Optional.empty();

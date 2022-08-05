@@ -20,13 +20,10 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.tensorflow.engine.SavedModelBundle;
 import ai.djl.tensorflow.engine.TfDataType;
 import ai.djl.util.Pair;
+import ai.djl.util.cuda.CudaUtils;
+
 import com.google.protobuf.InvalidProtocolBufferException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.Pointer;
@@ -54,6 +51,13 @@ import org.tensorflow.proto.framework.ConfigProto;
 import org.tensorflow.proto.framework.GPUOptions;
 import org.tensorflow.proto.framework.MetaGraphDef;
 import org.tensorflow.proto.framework.RunOptions;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** A class containing utilities to interact with the TensorFlow Engine's Javacpp layer. */
 public final class JavacppUtils {
@@ -424,7 +428,9 @@ public final class JavacppUtils {
                     tensorflow.TFE_TensorHandleCopyToDevice(
                             handle, eagerSessionHandle, deviceName, status);
             status.throwExceptionIfNotOK();
-            return newHandle;
+            // C API does not have deallocator by default
+            newHandle.withDeallocator();
+            return newHandle.retainReference();
         }
     }
 
@@ -438,8 +444,20 @@ public final class JavacppUtils {
         if (intraop != null) {
             configBuilder.setIntraOpParallelismThreads(intraop);
         }
-        GPUOptions gpuOptions = GPUOptions.newBuilder().setVisibleDeviceList("0").build();
-        configBuilder.setGpuOptions(gpuOptions);
+        int gpuCount = CudaUtils.getGpuCount();
+        if (gpuCount > 0) {
+            StringBuilder sb = new StringBuilder("0");
+            for (int i = 1; i < gpuCount; ++i) {
+                sb.append(',').append(i);
+            }
+            GPUOptions gpuOptions =
+                    GPUOptions.newBuilder().setVisibleDeviceList(sb.toString()).build();
+            configBuilder.setGpuOptions(gpuOptions);
+            configBuilder.setAllowSoftPlacement(true);
+            if (Boolean.getBoolean("ai.djl.tensorflow.debug")) {
+                configBuilder.setLogDevicePlacement(true);
+            }
+        }
         return configBuilder.build();
     }
 

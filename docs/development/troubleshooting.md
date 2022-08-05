@@ -20,39 +20,7 @@ You can install this package and reboot again to see if the issue persist. You c
 
 CN: Windows 10 加载失败常常是因为缺少 Windows Visual C++ 相关扩展包而导致的。您可以通过下面Windows的步骤来修复系统缺失依赖项。
 
-### 1.1 Engine dependency is missing
-DJL currently supports four engines: MXNet, PyTorch, TensorFlow and FastText.
-Please include at least one of those engines and their native library as dependencies.
-For example, adding MXNet engine dependencies:
-
-Gradle:
-
-```
-implementation "ai.djl.mxnet:mxnet-engine:0.15.0"
-// See https://github.com/deepjavalibrary/djl/blob/master/engines/mxnet/mxnet-engine/README.md for more MXNet library selection options
-runtimeOnly "ai.djl.mxnet:mxnet-native-auto:1.8.0"
-```
-
-Maven:
-
-```
-<dependency>
-    <groupId>ai.djl.mxnet</groupId>
-    <artifactId>mxnet-engine</artifactId>
-    <version>{version}</version>
-</dependency>
-<dependency>
-    <!--
-        See https://github.com/deepjavalibrary/djl/blob/master/engines/mxnet/mxnet-engine/README.md for more MXNet library selection options
-    -->
-    <groupId>ai.djl.mxnet</groupId>
-    <artifactId>mxnet-native-auto</artifactId>
-    <version>{mxnet.version}</version>
-    <scope>runtime</scope>
-</dependency>
-```
-
-### 1.2 Intellij Issue
+### 1.1 Intellij Issue
 The error may appear after running the `./gradlew clean` command:
 This issue is caused by a mismatch between IntelliJ and the Gradle runner.
 To fix this, navigate to: `Preferences-> Build Execution Deployment -> Build Tools -> Gradle`. Then, change the `Build and running using:` option to `Gradle`.
@@ -83,8 +51,8 @@ libtorch.dylib:
 	/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 400.9.0)
 ```
 
-It shows the `libtorch.dylib` depends on `libiomp5.dylib` and `libc10.dylib`. If one of them is missing, it throws an `UnsatisfiedLinkError` exception.
-If you are using `ai.djl.{engine}:{engine}-native-auto`, please create an issue at `https://github.com/deepjavalibrary/djl`.
+It shows the `libtorch.dylib` depends on `libiomp5.dylib` and `libc10.dylib`.
+If one of them is missing, it throws an `UnsatisfiedLinkError` exception, please create an issue at `https://github.com/deepjavalibrary/djl`.
 
 **Windows**
 
@@ -208,10 +176,10 @@ If that happens, the following can help: Go to `File > Settings > Build, Executi
   
 ## 7. Running an integration test hangs for a long time
 Often, the test itself does not actually hang. To run the integration tests, the `integration` subproject 
-has a `-SNAPSHOT` dependency on the mxnet native binaries, `ai.djl.mxnet:mxnet-native-auto`. As it 
-is a snapshot depency, it is updated by the build system regularly. If your integration tests hang, 
+has a `-SNAPSHOT` dependency on the PyTorch native binaries. As it 
+is a snapshot dependency, it is updated by the build system regularly. If your integration tests hang, 
 it is most likely just the automatic binary dependency being updated. As the total size is roughly
-1.7GB the download may take a while. Once this download is over, all further tests will run instantly.
+1.7GB (on GPU machine) the download may take a while. Once this download is over, all further tests will run instantly.
 
 ## 8. `UnsatisfiedLinkError` when running with old version of libstdc++.so
 If you encountered the following error:
@@ -232,7 +200,7 @@ No X11 DISPLAY variable was set, but this program performed an operation which r
 java.awt.HeadlessException:
 ```
 
-Follow the [steps here](https://github.com/aws-samples/d2l-java/blob/master/documentation/troubleshoot.md) to resolve it.
+Follow the [steps here](https://github.com/deepjavalibrary/d2l-java/blob/master/documentation/troubleshoot.md) to resolve it.
 
 
 ## 10. JVM crash
@@ -257,3 +225,20 @@ and relying on DJL's `NDManager` to efficiently GC the memory. You can do that b
 ```
 -Dai.djl.disable_close_resource_on_finalize=true
 ```
+
+## 11. Special character issues (PaddlePaddle)
+
+Please remember to not include special characters in your data/model path. Like "数据" or some non-asicii character.
+
+```
+C++ Traceback (most recent call last):
+Not support stack backtrace yet.
+Error Message Summary:
+NotFoundError: Cannot open file C: \Users\数据\.dil.ai\cache\repo\model\undefined\ai\dil|localmodelzoo\d4cb1b0cfc0101b98c3fec6f29568bef\.model
+please confirm whether the file is existeed!
+
+[Hint: Expected static_cast<bool>(fin.is_open()) == true, but received static_cast<bool>(fin.is_open)):0 != true:1.]
+fatal error has been detected by the Java Runtime Environment:
+```
+
+

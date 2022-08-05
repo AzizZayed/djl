@@ -19,6 +19,7 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.translate.TranslatorContext;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,17 @@ public class YoloTranslator extends ObjectDetectionTranslator {
             }
             retClasses.add(classes.get(classIndices[i]));
             retProbs.add(probs[i]);
-            Rectangle rect = new Rectangle(boxX[i], boxY[i], boxWidth[i], boxHeight[i]);
+            Rectangle rect;
+            if (applyRatio) {
+                rect =
+                        new Rectangle(
+                                boxX[i] / imageWidth,
+                                boxY[i] / imageHeight,
+                                boxWidth[i] / imageWidth,
+                                boxHeight[i] / imageHeight);
+            } else {
+                rect = new Rectangle(boxX[i], boxY[i], boxWidth[i], boxHeight[i]);
+            }
             retBB.add(rect);
         }
         return new DetectedObjects(retClasses, retProbs, retBB);

@@ -14,12 +14,16 @@ package ai.djl.util.cuda;
 
 import ai.djl.Device;
 import ai.djl.engine.EngineException;
+import ai.djl.util.Utils;
+
 import com.sun.jna.Native;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.lang.management.MemoryUsage;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** A class containing CUDA utility methods. */
 public final class CudaUtils {
@@ -153,12 +157,12 @@ public final class CudaUtils {
     private static CudaLibrary loadLibrary() {
         try {
             if (System.getProperty("os.name").startsWith("Win")) {
-                String path = System.getenv("PATH");
+                String path = Utils.getenv("PATH");
                 if (path == null) {
                     return null;
                 }
                 Pattern p = Pattern.compile("cudart64_\\d+\\.dll");
-                String cudaPath = System.getenv("CUDA_PATH");
+                String cudaPath = Utils.getenv("CUDA_PATH");
                 String[] searchPath;
                 if (cudaPath == null) {
                     searchPath = path.split(";");

@@ -25,6 +25,7 @@ import ai.djl.repository.Repository;
 import ai.djl.translate.Pipeline;
 import ai.djl.util.PairList;
 import ai.djl.util.Progress;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,6 +34,13 @@ import java.util.Optional;
 
 /**
  * Coco image detection dataset from http://cocodataset.org/#home.
+ *
+ * <p>Coco is a large-scale object detection, segmentation, and captioning dataset although only
+ * object detection is implemented at thsi time. It contains 1.5 million object instances and is one
+ * of the standard benchmark object detection datasets.
+ *
+ * <p>To use this dataset, you have to manually add {@code
+ * com.twelvemonkeys.imageio:imageio-jpeg:3.5} as a dependency in your project.
  *
  * <p>Each image might have different {@link ai.djl.ndarray.types.Shape}s.
  */
@@ -65,6 +73,7 @@ public class CocoDetection extends ObjectDetectionDataset {
         return new Builder();
     }
 
+    /** {@inheritDoc} */
     @Override
     public PairList<Long, Rectangle> getObjects(long index) {
         return labels.get(Math.toIntExact(index));
@@ -138,11 +147,13 @@ public class CocoDetection extends ObjectDetectionDataset {
         return ImageFactory.getInstance().fromFile(imagePaths.get(idx));
     }
 
+    /** {@inheritDoc} */
     @Override
     public Optional<Integer> getImageWidth() {
         return Optional.empty();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Optional<Integer> getImageHeight() {
         return Optional.empty();

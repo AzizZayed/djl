@@ -13,8 +13,13 @@
 
 package ai.djl.tensorflow.engine.javacpp;
 
+import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Platform;
 import ai.djl.util.Utils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,8 +31,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("MissingJavadocMethod")
 public final class LibUtils {
@@ -62,7 +65,7 @@ public final class LibUtils {
     }
 
     private static String findOverrideLibrary() {
-        String libPath = System.getenv("TENSORFLOW_LIBRARY_PATH");
+        String libPath = Utils.getenv("TENSORFLOW_LIBRARY_PATH");
         if (libPath != null) {
             String libName = findLibraryInPath(libPath);
             if (libName != null) {
@@ -104,12 +107,9 @@ public final class LibUtils {
             Files.createDirectories(cacheFolder);
             tmp = Files.createTempDirectory(cacheFolder, "tmp");
             for (String file : platform.getLibraries()) {
-                String libPath = "/native/lib/" + file;
+                String libPath = "native/lib/" + file;
                 logger.info("Extracting {} to cache ...", libPath);
-                try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-                    if (is == null) {
-                        throw new IllegalStateException("Tensorflow library not found: " + libPath);
-                    }
+                try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
                     Files.copy(is, tmp.resolve(file), StandardCopyOption.REPLACE_EXISTING);
                 }
             }
@@ -177,8 +177,8 @@ public final class LibUtils {
             boolean found = downloadFiles(lines, link, os, flavor, tmp);
             if (!found && cudaArch != null) {
                 // fallback to cpu
-                flavor = "cpu";
-                dir = cacheDir.resolve(version + '-' + flavor + '-' + classifier);
+                String cpuFlavor = "cpu";
+                dir = cacheDir.resolve(version + '-' + cpuFlavor + '-' + classifier);
                 path = dir.resolve(libName);
                 if (Files.exists(path)) {
                     logger.warn(

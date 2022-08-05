@@ -13,6 +13,7 @@
 package ai.djl.integration;
 
 import ai.djl.util.cuda.CudaUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -33,6 +34,8 @@ public class IntegrationTests {
             // together
             if (System.getProperty("os.name").startsWith("Win")) {
                 engines = new String[] {"MXNet"};
+            } else if ("aarch64".equals(System.getProperty("os.arch"))) {
+                engines = new String[] {"PyTorch"};
             } else {
                 engines = new String[] {"MXNet", "PyTorch", "TensorFlow", "XGBoost"};
             }

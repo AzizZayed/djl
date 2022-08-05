@@ -20,6 +20,7 @@ dependencies {
         api "ai.djl:model-zoo:${version}"
         api "ai.djl:serving:${version}"
         api "ai.djl.aws:aws-ai:${version}"
+        api "ai.djl.audio:audio:${version}"
         api "ai.djl.dlr:dlr-engine:${version}"
         api "ai.djl.fasttext:fasttext-engine:${version}"
         api "ai.djl.hadoop:hadoop:${version}"
@@ -35,6 +36,7 @@ dependencies {
         api "ai.djl.pytorch:pytorch-jni:${pytorch_version}-${version}"
         api "ai.djl.pytorch:pytorch-model-zoo:${version}"
         api "ai.djl.sentencepiece:sentencepiece:${version}"
+        api "ai.djl.tablesaw:tablesaw:${version}"
         api "ai.djl.tensorflow:tensorflow-api:${version}"
         api "ai.djl.tensorflow:tensorflow-engine:${version}"
         api "ai.djl.tensorflow:tensorflow-model-zoo:${version}"
@@ -98,9 +100,10 @@ publishing {
                     addDependency(dependencies, "ai.djl.mxnet", "mxnet-native-mkl", "linux-x86_64", "${mxnet_version}")
                     addDependency(dependencies, "ai.djl.mxnet", "mxnet-native-mkl", "win-x86_64", "${mxnet_version}")
                     addDependency(dependencies, "ai.djl.mxnet", "mxnet-native-cu102mkl", "linux-x86_64", "${mxnet_version}")
-                    addDependency(dependencies, "ai.djl.mxnet", "mxnet-native-cu110mkl", "linux-x86_64", "${mxnet_version}")
+                    addDependency(dependencies, "ai.djl.mxnet", "mxnet-native-cu112mkl", "linux-x86_64", "${mxnet_version}")
                     addDependency(dependencies, "ai.djl.pytorch", "pytorch-native-cpu", "osx-x86_64", "${pytorch_version}")
                     addDependency(dependencies, "ai.djl.pytorch", "pytorch-native-cpu", "linux-x86_64", "${pytorch_version}")
+                    addDependency(dependencies, "ai.djl.pytorch", "pytorch-native-cpu", "linux-aarch64", "${pytorch_version}")
                     addDependency(dependencies, "ai.djl.pytorch", "pytorch-native-cpu", "win-x86_64", "${pytorch_version}")
                     addDependency(dependencies, "ai.djl.pytorch", "pytorch-native-cpu-precxx11", "linux-x86_64", "${pytorch_version}")
                     addDependency(dependencies, "ai.djl.pytorch", "pytorch-native-cu102", "linux-x86_64", "${pytorch_version}")
@@ -117,6 +120,8 @@ publishing {
                     addDependency(dependencies, "ai.djl.paddlepaddle", "paddlepaddle-native-cpu", "linux-x86_64", "${paddlepaddle_version}")
                     addDependency(dependencies, "ai.djl.paddlepaddle", "paddlepaddle-native-cpu", "win-x86_64", "${paddlepaddle_version}")
                     addDependency(dependencies, "ai.djl.paddlepaddle", "paddlepaddle-native-cu102", "linux-x86_64", "${paddlepaddle_version}")
+                    addDependency(dependencies, "ai.djl.paddlepaddle", "paddlepaddle-native-cu112", "linux-x86_64", "${paddlepaddle_version}")
+                    addDependency(dependencies, "ai.djl.paddlepaddle", "paddlepaddle-native-cu110", "win-x86_64", "${paddlepaddle_version}")
                     addDependency(dependencies, "ai.djl.dlr", "dlr-native-cpu", "osx-x86_64", "${dlr_version}")
                     addDependency(dependencies, "ai.djl.dlr", "dlr-native-cpu", "linux-x86_64", "${dlr_version}")
                     addDependency(dependencies, "ai.djl.tflite", "tflite-native-cpu", "osx-x86_64", "${tflite_version}")

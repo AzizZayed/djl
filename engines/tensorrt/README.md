@@ -15,7 +15,7 @@ For more information, see [Hybrid Engine](../../docs/hybrid_engine.md).
 
 ## Documentation
 
-The latest javadocs can be found on the [djl.ai website](https://javadoc.io/doc/ai.djl.tensorrt/tensorrt/latest/index.html).
+The latest javadocs can be found on [here](https://javadoc.io/doc/ai.djl.tensorrt/tensorrt/latest/index.html).
 
 You can also build the latest javadocs locally using the following command:
 
@@ -28,13 +28,18 @@ The javadocs output is generated in the `build/doc/javadoc` folder.
 ## Installation
 You can pull the TensorRT engine from the central Maven repository by including the following dependency:
 
-- ai.djl.tensorrt:tensorrt:0.15.0
+- ai.djl.tensorrt:tensorrt:0.18.0
 
 ```xml
 <dependency>
     <groupId>ai.djl.tensorrt</groupId>
     <artifactId>tensorrt</artifactId>
-    <version>0.15.0</version>
+    <version>0.18.0</version>
     <scope>runtime</scope>
 </dependency>
 ```
+
+## Development
+We provide a [docker file](https://github.com/deepjavalibrary/djl/blob/master/docker/tensorrt/Dockerfile) to make 
+development of tensorrt with djl easier. Follow the instructions in the 
+[docker readme](https://github.com/deepjavalibrary/djl/blob/master/docker/README.md) to build and run the container.

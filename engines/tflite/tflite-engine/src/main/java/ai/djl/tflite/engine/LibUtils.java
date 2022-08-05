@@ -12,8 +12,13 @@
  */
 package ai.djl.tflite.engine;
 
+import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Platform;
 import ai.djl.util.Utils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -24,8 +29,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for finding the TFLite Engine binary on the System.
@@ -80,12 +83,9 @@ public final class LibUtils {
             Files.createDirectories(cacheFolder);
             tmp = Files.createTempDirectory(cacheFolder, "tmp");
             for (String file : platform.getLibraries()) {
-                String libPath = "/native/lib/" + file;
+                String libPath = "native/lib/" + file;
                 logger.info("Extracting {} to cache ...", libPath);
-                try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-                    if (is == null) {
-                        throw new IllegalStateException("TFLite library not found: " + libPath);
-                    }
+                try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
                     Files.copy(is, tmp.resolve(file), StandardCopyOption.REPLACE_EXISTING);
                 }
             }

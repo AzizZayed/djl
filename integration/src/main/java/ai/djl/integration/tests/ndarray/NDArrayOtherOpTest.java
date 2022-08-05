@@ -24,9 +24,11 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.testing.Assertions;
 import ai.djl.training.GradientCollector;
 import ai.djl.util.Hex;
-import java.nio.FloatBuffer;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.nio.FloatBuffer;
 
 public class NDArrayOtherOpTest {
 
@@ -267,7 +269,7 @@ public class NDArrayOtherOpTest {
             float[] data = {-1};
             array.set(FloatBuffer.wrap(data));
             NDArray expected = manager.create(-1f);
-            Assert.assertEquals(array, expected);
+            Assertions.assertAlmostEquals(array, expected);
             array = manager.zeros(new Shape(2, 3));
             data = new float[] {0, 1, 2, 3, 4, 5};
             array.set(FloatBuffer.wrap(data));
@@ -868,6 +870,26 @@ public class NDArrayOtherOpTest {
     }
 
     @Test
+    public void testInverse() {
+        try (NDManager manager = NDManager.newBaseManager()) {
+            NDArray array =
+                    manager.create(
+                                    new float[] {
+                                        1.0f, -4.0f, 2.0f, -2.0f, 1.0f, 3.0f, 2.0f, 6.0f, 8.0f
+                                    })
+                            .reshape(3, 3);
+            NDArray expected =
+                    manager.create(
+                                    new float[] {
+                                        0.0794f, -0.3492f, 0.1111f, -0.1746f, -0.0317f, 0.0556f,
+                                        0.1111f, 0.1111f, 0.0556f
+                                    })
+                            .reshape(3, 3);
+            Assertions.assertAlmostEquals(array.inverse(), expected);
+        }
+    }
+
+    @Test
     public void testNorm() {
         try (NDManager manager = NDManager.newBaseManager()) {
             // test 1-D
@@ -906,6 +928,7 @@ public class NDArrayOtherOpTest {
                     manager.create(
                             new float[][] {{0f, 1f, 0f}, {1f, 0f, 0f}, {0f, 0f, 1f}, {1f, 0f, 0f}});
             Assert.assertEquals(array.oneHot(3), expected);
+            Assert.assertEquals(array.oneHot(3, DataType.FLOAT32), expected);
             // test with all parameters
             array = manager.create(new int[] {1, 0, 2, 0});
             expected = manager.create(new int[][] {{1, 8, 1}, {8, 1, 1}, {1, 1, 8}, {8, 1, 1}});

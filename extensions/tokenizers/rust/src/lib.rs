@@ -16,11 +16,15 @@ extern crate tokenizers as tk;
 
 use std::str::FromStr;
 use tk::tokenizer::{EncodeInput, Encoding};
-use tk::FromPretrainedParameters;
 use tk::Tokenizer;
+use tk::{FromPretrainedParameters, Offsets};
+use tk::utils::truncation::{TruncationParams, TruncationStrategy};
+use tk::utils::padding::{PaddingParams, PaddingStrategy};
 
-use jni::objects::{JObject, JString};
-use jni::sys::{jboolean, jlong, jlongArray, jobjectArray, jsize, JNI_TRUE};
+use jni::objects::{JClass, JMethodID, JObject, JString, JValue, ReleaseMode};
+use jni::sys::{
+    jboolean, jint, jlong, jlongArray, jobjectArray, jsize, jstring, JNI_TRUE,
+};
 use jni::JNIEnv;
 
 #[no_mangle]
@@ -92,6 +96,39 @@ pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_
 
     let input_sequence = tk::InputSequence::from(sequence);
     let encoded_input = EncodeInput::Single(input_sequence);
+    let encoding = tokenizer.encode(encoded_input, add_special_tokens == JNI_TRUE);
+
+    match encoding {
+        Ok(output) => to_handle(output),
+        Err(err) => {
+            env.throw(err.to_string()).unwrap();
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_encodeDual(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+    text: JString,
+    text_pair: JString,
+    add_special_tokens: jboolean,
+) -> jlong {
+    let tokenizer = cast_handle::<Tokenizer>(handle);
+    let sequence1: String = env
+        .get_string(text)
+        .expect("Couldn't get text string!")
+        .into();
+    let sequence2: String = env
+        .get_string(text_pair)
+        .expect("Couldn't get text_pair string!")
+        .into();
+
+    let input_sequence1 = tk::InputSequence::from(sequence1);
+    let input_sequence2 = tk::InputSequence::from(sequence2);
+    let encoded_input = EncodeInput::Dual(input_sequence1, input_sequence2);
     let encoding = tokenizer.encode(encoded_input, add_special_tokens == JNI_TRUE);
 
     match encoding {
@@ -256,7 +293,8 @@ pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_
         .unwrap();
     for (i, token) in tokens.iter().enumerate() {
         let item: JString = env.new_string(&token).unwrap();
-        env.set_object_array_element(array, i as jsize, item).unwrap();
+        env.set_object_array_element(array, i as jsize, item)
+            .unwrap();
     }
     array
 }
@@ -297,6 +335,151 @@ pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_
     let array: jlongArray = env.new_long_array(len).unwrap();
     env.set_long_array_region(array, 0, &long_ids).unwrap();
     array
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_getTokenCharSpans(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+) -> jobjectArray {
+    let encoding = cast_handle::<Encoding>(handle);
+    let tokens = encoding.get_tokens();
+    let len = tokens.len() as jsize;
+
+    let array: jobjectArray = env
+        .new_object_array(
+            len,
+            "ai/djl/huggingface/tokenizers/jni/CharSpan",
+            JObject::null(),
+        )
+        .unwrap();
+    for (i, _) in tokens.iter().enumerate() {
+        let opt_offsets: Option<(usize, Offsets)> = encoding.token_to_chars(i);
+        match &opt_offsets {
+            Some((_, offsets)) => {
+                let class_id = "ai/djl/huggingface/tokenizers/jni/CharSpan";
+                let method_id = "<init>";
+                let params = "(II)V";
+                let cls: JClass = env.find_class(class_id).unwrap();
+                let constructor: JMethodID = env.get_method_id(cls, method_id, params).unwrap();
+                let offsets_vec: Vec<JValue> = vec![
+                    JValue::Int((*offsets).0 as jint),
+                    JValue::Int((*offsets).1 as jint),
+                ];
+                let obj = env
+                    .new_object_unchecked(cls, constructor, &offsets_vec[..])
+                    .unwrap();
+                env.set_object_array_element(array, i as jsize, obj)
+                    .unwrap();
+            }
+            None => {}
+        }
+    }
+    array
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_decode(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+    ids: jlongArray,
+    skip_special_tokens: jboolean,
+) -> jstring {
+    let tokenizer = cast_handle::<Tokenizer>(handle);
+    let long_ids = env.get_long_array_elements(ids, ReleaseMode::NoCopyBack).unwrap();
+    let long_ids_ptr = long_ids.as_ptr();
+    let len = long_ids.size().unwrap() as usize;
+    let mut decode_ids: Vec<u32> = Vec::new();
+    for i in 0..len {
+        unsafe {
+            let val = long_ids_ptr.add(i);
+            decode_ids.push(*val as u32);
+        }
+    }
+    let decoding: String = tokenizer.decode(decode_ids, skip_special_tokens == JNI_TRUE).unwrap();
+    let ret = env
+        .new_string(decoding)
+        .expect("Couldn't create java string!")
+        .into_inner();
+
+    ret
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_setPadding(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+    max_length: jlong,
+    padding_strategy: JString,
+    pad_to_multiple_of: jlong,
+) {
+    let strategy: String = env
+        .get_string(padding_strategy)
+        .expect("Couldn't get java string!")
+        .into();
+    let len = max_length as usize;
+    let res_strategy = match strategy.as_ref() {
+        "batch_longest" => Ok(PaddingStrategy::BatchLongest),
+        "fixed" => Ok(PaddingStrategy::Fixed(len)),
+        _ => Err("strategy must be one of [batch_longest, fixed]"),
+    };
+
+    let mut params = PaddingParams::default();
+    params.strategy = res_strategy.unwrap();
+    params.pad_to_multiple_of = Some(pad_to_multiple_of as usize);
+    let tokenizer = cast_handle::<Tokenizer>(handle);
+    tokenizer.with_padding(Some(params));
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_disablePadding(
+    _env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+) {
+    let tokenizer = cast_handle::<Tokenizer>(handle);
+    tokenizer.with_padding(None);
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_setTruncation(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+    truncation_max_length: jlong,
+    truncation_strategy: JString,
+    truncation_stride: jlong,
+) {
+    let strategy: String = env
+        .get_string(truncation_strategy)
+        .expect("Couldn't get java string!")
+        .into();
+    let res_strategy = match strategy.as_ref() {
+       "longest_first" => Ok(TruncationStrategy::LongestFirst),
+       "only_first" => Ok(TruncationStrategy::OnlyFirst),
+       "only_second" => Ok(TruncationStrategy::OnlySecond),
+       _ => Err("strategy must be one of [longest_first, only_first, only_second]"),
+    };
+    let mut params = TruncationParams::default();
+    params.max_length = truncation_max_length as usize;
+    params.strategy = res_strategy.unwrap();
+    params.stride = truncation_stride as usize;
+
+    let tokenizer = cast_handle::<Tokenizer>(handle);
+    tokenizer.with_truncation(Some(params));
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ai_djl_huggingface_tokenizers_jni_TokenizersLibrary_disableTruncation(
+    _env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+) {
+    let tokenizer = cast_handle::<Tokenizer>(handle);
+    tokenizer.with_truncation(None);
 }
 
 fn to_handle<T: 'static>(val: T) -> jlong {

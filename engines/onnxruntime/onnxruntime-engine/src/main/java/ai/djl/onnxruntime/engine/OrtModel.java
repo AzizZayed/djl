@@ -25,6 +25,7 @@ import ai.onnxruntime.OrtSession;
 import ai.onnxruntime.OrtSession.SessionOptions;
 import ai.onnxruntime.OrtSession.SessionOptions.ExecutionMode;
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,10 +78,6 @@ public class OrtModel extends BaseModel {
 
         try {
             SessionOptions ortOptions = getSessionOptions(options);
-            Device device = manager.getDevice();
-            if (device.isGpu()) {
-                ortOptions.addCUDA(manager.getDevice().getDeviceId());
-            }
             OrtSession session = env.createSession(modelFile.toString(), ortOptions);
             block = new OrtSymbolBlock(session, (OrtNDManager) manager);
         } catch (OrtException e) {
@@ -100,10 +97,6 @@ public class OrtModel extends BaseModel {
         try {
             byte[] buf = Utils.toByteArray(is);
             SessionOptions ortOptions = getSessionOptions(options);
-            Device device = manager.getDevice();
-            if (device.isGpu()) {
-                ortOptions.addCUDA(manager.getDevice().getDeviceId());
-            }
             OrtSession session = env.createSession(buf, ortOptions);
             block = new OrtSymbolBlock(session, (OrtNDManager) manager);
         } catch (OrtException e) {
@@ -186,6 +179,33 @@ public class OrtModel extends BaseModel {
             ortSession.setCPUArenaAllocator(true);
         }
 
+        String customOpLibrary = (String) options.get("customOpLibrary");
+        if (customOpLibrary != null) {
+            ortSession.registerCustomOpLibrary(customOpLibrary);
+        }
+
+        Device device = manager.getDevice();
+        if (options.containsKey("ortDevice")) {
+            String ortDevice = (String) options.get("ortDevice");
+            switch (ortDevice) {
+                case "TensorRT":
+                    if (!device.isGpu()) {
+                        throw new IllegalArgumentException("TensorRT required GPU device.");
+                    }
+                    ortSession.addTensorrt(device.getDeviceId());
+                    break;
+                case "ROCM":
+                    ortSession.addROCM();
+                    break;
+                case "CoreML":
+                    ortSession.addCoreML();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid ortDevice: " + ortDevice);
+            }
+        } else if (device.isGpu()) {
+            ortSession.addCUDA(device.getDeviceId());
+        }
         return ortSession;
     }
 }

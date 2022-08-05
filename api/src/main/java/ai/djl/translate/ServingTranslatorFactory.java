@@ -22,6 +22,10 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Pair;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -40,10 +44,10 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** A {@link TranslatorFactory} that creates an generic {@link Translator}. */
 public class ServingTranslatorFactory implements TranslatorFactory {
@@ -72,6 +76,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             if (factory != null
                     && !(factory instanceof ServingTranslatorFactory)
                     && factory.isSupported(input, output)) {
+                logger.info("Using TranslatorFactory: {}", factory.getClass().getName());
                 return factory.newInstance(input, output, model, arguments);
             }
         }
@@ -81,13 +86,14 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         Path libPath = modelDir.resolve("libs");
         if (!Files.isDirectory(libPath)) {
             libPath = modelDir.resolve("lib");
-            if (!Files.isDirectory(libPath)) {
+            if (!Files.isDirectory(libPath) && className == null) {
                 return loadDefaultTranslator(arguments);
             }
         }
         ServingTranslator translator = findTranslator(libPath, className);
         if (translator != null) {
             translator.setArguments(arguments);
+            logger.info("Using translator: {}", translator.getClass().getName());
             return translator;
         }
         return loadDefaultTranslator(arguments);
@@ -98,10 +104,17 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             Path classesDir = path.resolve("classes");
             compileJavaClass(classesDir);
 
-            List<Path> jarFiles =
-                    Files.list(path)
-                            .filter(p -> p.toString().endsWith(".jar"))
-                            .collect(Collectors.toList());
+            List<Path> jarFiles = new ArrayList<>();
+            if (Files.isDirectory(path)) {
+                try (Stream<Path> stream = Files.list(path)) {
+                    stream.forEach(
+                            p -> {
+                                if (p.toString().endsWith(".jar")) {
+                                    jarFiles.add(p);
+                                }
+                            });
+                }
+            }
             List<URL> urls = new ArrayList<>(jarFiles.size() + 1);
             urls.add(classesDir.toUri().toURL());
             for (Path p : jarFiles) {
@@ -111,6 +124,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             ClassLoader parentCl = ClassLoaderUtils.getContextClassLoader();
             ClassLoader cl = new URLClassLoader(urls.toArray(new URL[0]), parentCl);
             if (className != null && !className.isEmpty()) {
+                logger.info("Trying to loading specified Translator: {}", className);
                 return initTranslator(cl, className);
             }
 
@@ -136,10 +150,12 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             logger.debug("Directory not exists: {}", dir);
             return null;
         }
-        Collection<Path> files =
-                Files.walk(dir)
-                        .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".class"))
-                        .collect(Collectors.toList());
+        Collection<Path> files;
+        try (Stream<Path> stream = Files.walk(dir)) {
+            files =
+                    stream.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".class"))
+                            .collect(Collectors.toList());
+        }
         for (Path file : files) {
             Path p = dir.relativize(file);
             String className = p.toString();
@@ -147,6 +163,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
             className = className.replace(File.separatorChar, '.');
             ServingTranslator translator = initTranslator(cl, className);
             if (translator != null) {
+                logger.info("Found translator in model directory: {}", className);
                 return translator;
             }
         }
@@ -164,6 +181,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
                     fileName = fileName.replace('/', '.');
                     ServingTranslator translator = initTranslator(cl, fileName);
                     if (translator != null) {
+                        logger.info("Found translator {} in jar {}", fileName, path);
                         return translator;
                     }
                 }
@@ -218,11 +236,13 @@ public class ServingTranslatorFactory implements TranslatorFactory {
                 logger.debug("Directory not exists: {}", dir);
                 return;
             }
-            String[] files =
-                    Files.walk(dir)
-                            .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
-                            .map(p -> p.toAbsolutePath().toString())
-                            .toArray(String[]::new);
+            String[] files;
+            try (Stream<Path> stream = Files.walk(dir)) {
+                files =
+                        stream.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
+                                .map(p -> p.toAbsolutePath().toString())
+                                .toArray(String[]::new);
+            }
             JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             if (files.length > 0) {
                 compiler.run(null, null, null, files);
@@ -251,6 +271,7 @@ public class ServingTranslatorFactory implements TranslatorFactory {
         public NDList processInput(TranslatorContext ctx, Input input) throws TranslateException {
             NDManager manager = ctx.getNDManager();
             try {
+                ctx.setAttachment("properties", input.getProperties());
                 return input.getDataAsNDList(manager);
             } catch (IllegalArgumentException e) {
                 throw new TranslateException("Input is not a NDList data type", e);
@@ -259,11 +280,19 @@ public class ServingTranslatorFactory implements TranslatorFactory {
 
         /** {@inheritDoc} */
         @Override
+        @SuppressWarnings("unchecked")
         public Output processOutput(TranslatorContext ctx, NDList list) {
+            Map<String, String> prop = (Map<String, String>) ctx.getAttachment("properties");
+            String contentType = prop.get("Content-Type");
+
             Output output = new Output();
-            // TODO: find a way to pass NDList out
-            output.add(list.getAsBytes());
-            output.addProperty("Content-Type", "tensor/ndlist");
+            if ("tensor/npz".equalsIgnoreCase(contentType)) {
+                output.add(list.encode(true));
+                output.addProperty("Content-Type", "tensor/npz");
+            } else {
+                output.add(list.encode(false));
+                output.addProperty("Content-Type", "tensor/ndlist");
+            }
             return output;
         }
     }

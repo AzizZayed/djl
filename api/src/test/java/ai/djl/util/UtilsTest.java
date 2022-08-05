@@ -13,6 +13,11 @@
 
 package ai.djl.util;
 
+import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,10 +25,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 public class UtilsTest {
 
@@ -76,5 +77,13 @@ public class UtilsTest {
         list.add(2);
         float[] array = Utils.toFloatArray(list);
         Assert.assertEquals(array, new float[] {1f, 2f});
+    }
+
+    @Test
+    public void testGetenv() {
+        if (!Utils.getenv().containsKey("TEST")) {
+            Assert.assertNull(Utils.getenv("TEST"));
+            Assert.assertEquals(Utils.getenv("TEST", "test"), "test");
+        }
     }
 }

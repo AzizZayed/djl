@@ -28,7 +28,9 @@ import ai.djl.translate.Batchifier;
 import ai.djl.translate.TranslatorContext;
 import ai.djl.util.JsonUtils;
 import ai.djl.util.Utils;
+
 import com.google.gson.annotations.SerializedName;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -111,7 +113,7 @@ public class MxBertQATranslator extends QATranslator {
         NDArray endLogits = output.get(1).reshape(new Shape(1, -1));
         int startIdx = (int) startLogits.argMax(1).getLong();
         int endIdx = (int) endLogits.argMax(1).getLong();
-        return tokenizer.tokenToString(tokens.subList(startIdx, endIdx + 1));
+        return tokenizer.buildSentence(tokens.subList(startIdx, endIdx + 1));
     }
 
     /**

@@ -12,9 +12,9 @@
  */
 package ai.djl.onnxruntime.engine;
 
-import ai.djl.MalformedModelException;
 import ai.djl.Model;
 import ai.djl.ModelException;
+import ai.djl.engine.Engine;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.Classifications;
 import ai.djl.ndarray.NDArray;
@@ -23,16 +23,19 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.onnxruntime.zoo.tabular.softmax_regression.IrisFlower;
 import ai.djl.repository.zoo.Criteria;
-import ai.djl.repository.zoo.ModelNotFoundException;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.translate.TranslateException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import ai.onnxruntime.OrtException;
+
 import org.testng.Assert;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class OrtTest {
 
@@ -85,7 +88,7 @@ public class OrtTest {
     }
 
     @Test
-    public void testNDArray() {
+    public void testNDArray() throws OrtException {
         try (NDManager manager = OrtNDManager.getSystemManager().newSubManager()) {
             NDArray zeros = manager.zeros(new Shape(1, 2));
             float[] data = zeros.toFloatArray();
@@ -106,14 +109,15 @@ public class OrtTest {
 
             array = manager.create(new String[] {"string1", "string2"});
             Assert.assertEquals(array.toStringArray()[1], "string2");
+
+            float[][] value = (float[][]) ((OrtNDArray) ones).getTensor().getValue();
+            Assert.assertEquals(value[0], new float[] {1, 1});
         }
     }
 
     @Test
-    public void testStringTensor()
-            throws MalformedModelException, ModelNotFoundException, IOException,
-                    TranslateException {
-        System.setProperty("ai.djl.onnx.disable_alternative", "true");
+    public void testStringTensor() throws ModelException, IOException, TranslateException {
+        setAlternativeEngineDisabled(true);
         Criteria<NDList, NDList> criteria =
                 Criteria.builder()
                         .setTypes(NDList.class, NDList.class)
@@ -132,6 +136,36 @@ public class OrtTest {
             Assert.assertEquals(result.size(), 2);
             Assert.assertEquals(result.get(0).toLongArray(), new long[] {1});
         }
-        System.clearProperty("ai.djl.onnx.disable_alternative");
+        setAlternativeEngineDisabled(false);
+    }
+
+    @Test
+    public void testAlternativeArray() {
+        try (NDManager manager = OrtNDManager.getSystemManager().newSubManager()) {
+            NDArray array = manager.zeros(new Shape(1, 2));
+            Assert.assertEquals(array.get(0).toFloatArray(), new float[] {0, 0});
+        }
+
+        setAlternativeEngineDisabled(true);
+        try (NDManager manager = OrtNDManager.getSystemManager().newSubManager()) {
+            NDArray array = manager.zeros(new Shape(1, 2));
+            Assert.expectThrows(UnsupportedOperationException.class, () -> array.get(0));
+        }
+        setAlternativeEngineDisabled(false);
+    }
+
+    private void setAlternativeEngineDisabled(boolean enable) {
+        System.setProperty("ai.djl.onnx.disable_alternative", String.valueOf(enable));
+        Engine engine = Engine.getEngine(OrtEngine.ENGINE_NAME);
+        try {
+            Field field = OrtEngine.class.getDeclaredField("initialized");
+            field.setAccessible(true);
+            field.setBoolean(engine, false);
+            field = OrtEngine.class.getDeclaredField("alternativeEngine");
+            field.setAccessible(true);
+            field.set(engine, null);
+        } catch (ReflectiveOperationException ignore) {
+            // ignore
+        }
     }
 }

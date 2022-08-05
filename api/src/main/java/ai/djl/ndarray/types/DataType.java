@@ -13,6 +13,7 @@
 package ai.djl.ndarray.types;
 
 import ai.djl.ndarray.NDArray;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -87,6 +88,15 @@ public enum DataType {
      */
     public boolean isInteger() {
         return format == Format.UINT || format == Format.INT;
+    }
+
+    /**
+     * Checks whether it is a boolean data type.
+     *
+     * @return whether it is a boolean data type
+     */
+    public boolean isBoolean() {
+        return format == Format.BOOLEAN;
     }
 
     /**

@@ -20,6 +20,7 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.util.Float16Utils;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
@@ -456,7 +457,7 @@ public interface NDArray extends NDResource, BytesSupplier {
      *     index
      */
     default void set(NDIndex index, NDArray value) {
-        getNDArrayInternal().getIndexer().set(this, index, value);
+        getNDArrayInternal().getIndexer(getManager()).set(this, index, value);
     }
 
     /**
@@ -466,7 +467,7 @@ public interface NDArray extends NDResource, BytesSupplier {
      * @param value the value to replace with
      */
     default void set(NDIndex index, Number value) {
-        getNDArrayInternal().getIndexer().set(this, index, value);
+        getNDArrayInternal().getIndexer(getManager()).set(this, index, value);
     }
 
     /**
@@ -481,13 +482,13 @@ public interface NDArray extends NDResource, BytesSupplier {
     }
 
     /**
-     * Sets the {@code NDArray} by boolean mask.
+     * Sets the {@code NDArray} by boolean mask or integer index.
      *
-     * @param index the boolean {@code NDArray} that indicates what to get
+     * @param index the boolean or integer {@code NDArray} that indicates what to get
      * @param value the value to replace with
      */
     default void set(NDArray index, Number value) {
-        set(new NDIndex().addBooleanIndex(index), value);
+        set(new NDIndex("{}", index), value);
     }
 
     /**
@@ -498,7 +499,7 @@ public interface NDArray extends NDResource, BytesSupplier {
      * @throws IllegalArgumentException thrown if the index does not correspond to a single element
      */
     default void setScalar(NDIndex index, Number value) {
-        getNDArrayInternal().getIndexer().setScalar(this, index, value);
+        getNDArrayInternal().getIndexer(getManager()).setScalar(this, index, value);
     }
 
     /**
@@ -508,7 +509,28 @@ public interface NDArray extends NDResource, BytesSupplier {
      * @return the partial {@code NDArray}
      */
     default NDArray get(NDIndex index) {
-        return getNDArrayInternal().getIndexer().get(this, index);
+        return get(getManager(), index);
+    }
+
+    /**
+     * Returns a partial {@code NDArray}.
+     *
+     * @param manager the manager used to create the arrays
+     * @param index the section of this {@code NDArray} to return
+     * @return the partial {@code NDArray}
+     */
+    default NDArray get(NDManager manager, NDIndex index) {
+        return getNDArrayInternal().getIndexer(manager).get(this, index);
+    }
+
+    /**
+     * Returns a partial {@code NDArray}.
+     *
+     * @param index the boolean or integer {@code NDArray} that indicates what to get
+     * @return the partial {@code NDArray}
+     */
+    default NDArray get(NDArray index) {
+        return get(new NDIndex("{}", index));
     }
 
     /**
@@ -538,12 +560,44 @@ public interface NDArray extends NDResource, BytesSupplier {
     /**
      * Returns a partial {@code NDArray}.
      *
-     * @param index the boolean {@code NDArray} that indicates what to get
+     * @param manager the manager used to create the arrays
+     * @param indices the indices with each index corresponding to the dimensions and negative
+     *     indices starting from the end
      * @return the partial {@code NDArray}
      */
-    default NDArray get(NDArray index) {
-        return get(new NDIndex().addBooleanIndex(index));
+    default NDArray get(NDManager manager, long... indices) {
+        return get(manager, new NDIndex(indices));
     }
+
+    /**
+     * Returns a partial {@code NDArray} pointed by the indexed array. Given NDArray arr, NDArray
+     * idx, and long axis, the output is out_{ijk} = arr_{idx_{ijk}, j, k} if axis=0 or arr_{i,
+     * idx_{ijk}, k} if axis=1 or arr_{i, j, idx_{ijk}} if axis=2
+     *
+     * @param index picks the elements of an NDArray to the same position as index
+     * @param axis the entries of index are indices of axis
+     * @return the partial {@code NDArray} of the same shape as index
+     */
+    NDArray gather(NDArray index, int axis);
+
+    /**
+     * Returns a partial {@code NDArray} pointed by index according to linear indexing, and the of
+     * output is of the same shape as index.
+     *
+     * @param index picks the elements of an NDArray and output to the same entry as in index
+     * @return the partial {@code NDArray} of the same shape as index
+     */
+    NDArray take(NDArray index);
+
+    /**
+     * Set the entries of {@code NDArray} pointed by index according to linear indexing, to be the
+     * numbers in data, which is of the same shape as index.
+     *
+     * @param index select the entries of an {@code NDArray}
+     * @param data numbers to assign to the indexed entries
+     * @return the NDArray with updated values
+     */
+    NDArray put(NDArray index, NDArray data);
 
     /**
      * Returns a scalar {@code NDArray} corresponding to a single element.
@@ -3591,6 +3645,13 @@ public interface NDArray extends NDResource, BytesSupplier {
     NDArray isInfinite();
 
     /**
+     * Computes the inverse of square {@code NDArray} if it exists.
+     *
+     * @return the inverse of square {@code NDArray}.
+     */
+    NDArray inverse();
+
+    /**
      * Returns the boolean {@code NDArray} with value {@code true} where this {@code NDArray}'s
      * entries are NaN, or {@code false} where they are not NaN.
      *
@@ -4660,7 +4721,7 @@ public interface NDArray extends NDResource, BytesSupplier {
      *     href=https://d2l.djl.ai/chapter_linear-networks/softmax-regression.html#classification-problems>Classification-problems</a>
      */
     default NDArray oneHot(int depth, DataType dataType) {
-        return oneHot(depth, 0f, 1f, dataType);
+        return oneHot(depth, 1f, 0f, dataType);
     }
 
     /**

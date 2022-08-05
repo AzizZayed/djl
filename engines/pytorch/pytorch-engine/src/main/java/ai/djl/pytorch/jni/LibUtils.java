@@ -12,8 +12,14 @@
  */
 package ai.djl.pytorch.jni;
 
+import ai.djl.util.ClassLoaderUtils;
 import ai.djl.util.Platform;
 import ai.djl.util.Utils;
+import ai.djl.util.cuda.CudaUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,8 +38,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for finding the PyTorch Engine binary on the System.
@@ -101,6 +105,7 @@ public final class LibUtils {
             // PyTorch 1.8.1 libtorch_cpu.dylib cannot be loaded individually
             return;
         }
+        boolean isCuda = libTorch.flavor.contains("cu");
         List<String> deferred =
                 Arrays.asList(
                         System.mapLibraryName("fbgemm"),
@@ -117,6 +122,12 @@ public final class LibUtils {
             paths.filter(
                             path -> {
                                 String name = path.getFileName().toString();
+                                if (!isCuda
+                                        && name.contains("nvrtc")
+                                        && name.contains("cudart")
+                                        && name.contains("nvTools")) {
+                                    return false;
+                                }
                                 return !loadLater.contains(name)
                                         && Files.isRegularFile(path)
                                         && !name.endsWith(JNI_LIB_NAME)
@@ -138,6 +149,14 @@ public final class LibUtils {
                 loadNativeLibrary(libDir.resolve("cudnn64_7.dll").toString());
             }
 
+            if (!isCuda) {
+                deferred =
+                        Arrays.asList(
+                                System.mapLibraryName("fbgemm"),
+                                System.mapLibraryName("torch_cpu"),
+                                System.mapLibraryName("torch"));
+            }
+
             for (String dep : deferred) {
                 Path path = libDir.resolve(dep);
                 if (Files.exists(path)) {
@@ -150,7 +169,7 @@ public final class LibUtils {
     }
 
     private static LibTorch findOverrideLibrary() {
-        String libPath = System.getenv("PYTORCH_LIBRARY_PATH");
+        String libPath = Utils.getenv("PYTORCH_LIBRARY_PATH");
         if (libPath != null) {
             LibTorch lib = findLibraryInPath(libPath);
             if (lib != null) {
@@ -205,11 +224,14 @@ public final class LibUtils {
         }
         version = matcher.group(1);
 
-        try (InputStream is = LibUtils.class.getResourceAsStream("/jnilib/pytorch.properties")) {
+        try {
+            URL url = ClassLoaderUtils.getResource("jnilib/pytorch.properties");
             String jniVersion = null;
-            if (is != null) {
+            if (url != null) {
                 Properties prop = new Properties();
-                prop.load(is);
+                try (InputStream is = url.openStream()) {
+                    prop.load(is);
+                }
                 jniVersion = prop.getProperty("jni_version");
                 if (jniVersion == null) {
                     throw new AssertionError("No PyTorch jni version found.");
@@ -228,12 +250,9 @@ public final class LibUtils {
         }
 
         Path tmp = null;
-        String libPath = "/jnilib/" + classifier + '/' + flavor + '/' + JNI_LIB_NAME;
+        String libPath = "jnilib/" + classifier + '/' + flavor + '/' + JNI_LIB_NAME;
         logger.info("Extracting {} to cache ...", libPath);
-        try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-            if (is == null) {
-                throw new AssertionError("PyTorch jni not found: " + libPath);
-            }
+        try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
             tmp = Files.createTempFile(dir, "jni", "tmp");
             Files.copy(is, tmp, StandardCopyOption.REPLACE_EXISTING);
             Utils.moveQuietly(tmp, path);
@@ -249,7 +268,7 @@ public final class LibUtils {
 
     private static LibTorch findNativeLibrary() {
         Platform platform = Platform.detectPlatform("pytorch");
-        String overrideVersion = System.getenv("PYTORCH_VERSION");
+        String overrideVersion = Utils.getenv("PYTORCH_VERSION");
         if (overrideVersion == null) {
             overrideVersion = System.getProperty("PYTORCH_VERSION");
         }
@@ -288,16 +307,28 @@ public final class LibUtils {
             if (Files.exists(path)) {
                 return new LibTorch(dir.toAbsolutePath(), platform, flavor);
             }
+            Utils.deleteQuietly(dir);
+
+            Matcher m = VERSION_PATTERN.matcher(version);
+            if (!m.matches()) {
+                throw new IllegalArgumentException("Unexpected version: " + version);
+            }
+            String[] versions = m.group(1).split("\\.");
+            int minorVersion = Integer.parseInt(versions[1]);
+            int buildVersion = Integer.parseInt(versions[2]);
+            String pathPrefix;
+            if (minorVersion > 10 || (minorVersion == 10 && buildVersion == 2)) {
+                pathPrefix = "pytorch/" + flavor + '/' + classifier;
+            } else {
+                pathPrefix = "native/lib";
+            }
 
             Files.createDirectories(cacheDir);
             tmp = Files.createTempDirectory(cacheDir, "tmp");
             for (String file : platform.getLibraries()) {
-                String libPath = "/native/lib/" + file;
+                String libPath = pathPrefix + '/' + file;
                 logger.info("Extracting {} to cache ...", libPath);
-                try (InputStream is = LibUtils.class.getResourceAsStream(libPath)) {
-                    if (is == null) {
-                        throw new IllegalStateException("PyTorch library not found: " + libPath);
-                    }
+                try (InputStream is = ClassLoaderUtils.getResourceAsStream(libPath)) {
                     Files.copy(is, tmp.resolve(file), StandardCopyOption.REPLACE_EXISTING);
                 }
             }
@@ -333,8 +364,11 @@ public final class LibUtils {
         String flavor = platform.getFlavor();
         String classifier = platform.getClassifier();
         String precxx11;
-        if (Boolean.getBoolean("PYTORCH_PRECXX11")
-                || Boolean.parseBoolean(System.getenv("PYTORCH_PRECXX11"))) {
+        if (System.getProperty("os.name").startsWith("Linux")
+                && (Boolean.getBoolean("PYTORCH_PRECXX11")
+                        || Boolean.parseBoolean(Utils.getenv("PYTORCH_PRECXX11"))
+                        || ("aarch64".equals(platform.getOsArch())
+                                && "linux".equals(platform.getOsPrefix())))) {
             precxx11 = "-precxx11";
         } else {
             precxx11 = "";
@@ -475,18 +509,22 @@ public final class LibUtils {
             this.dir = dir;
             this.apiVersion = platform.getApiVersion();
             this.classifier = platform.getClassifier();
-            version = System.getenv("PYTORCH_VERSION");
+            version = Utils.getenv("PYTORCH_VERSION");
             if (version == null) {
                 version = System.getProperty("PYTORCH_VERSION");
                 if (version == null) {
                     version = platform.getVersion();
                 }
             }
-            flavor = System.getenv("PYTORCH_FLAVOR");
+            flavor = Utils.getenv("PYTORCH_FLAVOR");
             if (flavor == null) {
                 flavor = System.getProperty("PYTORCH_FLAVOR");
                 if (flavor == null) {
-                    flavor = "cpu-precxx11";
+                    if (CudaUtils.getGpuCount() > 0) {
+                        flavor = "cu" + CudaUtils.getCudaVersionString() + "-precxx11";
+                    } else {
+                        flavor = "cpu-precxx11";
+                    }
                 }
             }
         }

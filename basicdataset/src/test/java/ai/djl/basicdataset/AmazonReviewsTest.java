@@ -16,9 +16,11 @@ import ai.djl.basicdataset.nlp.AmazonReview;
 import ai.djl.ndarray.NDManager;
 import ai.djl.training.dataset.Record;
 import ai.djl.translate.TranslateException;
-import java.io.IOException;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
 
 public class AmazonReviewsTest {
 
@@ -35,8 +37,9 @@ public class AmazonReviewsTest {
             dataset.prepare();
 
             Record record = dataset.get(manager, 0);
-            Assert.assertEquals(record.getData().get(0).getFloat(), 0);
-            Assert.assertEquals(record.getLabels().get(0).getFloat(), 4.0);
+            Assert.assertEquals(
+                    record.getData().singletonOrThrow().toFloatArray(), new float[] {1});
+            Assert.assertEquals(record.getLabels().singletonOrThrow().getFloat(), 4.0);
         }
     }
 }

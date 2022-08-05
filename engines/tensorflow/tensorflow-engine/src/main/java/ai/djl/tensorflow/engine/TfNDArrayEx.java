@@ -15,6 +15,7 @@ package ai.djl.tensorflow.engine;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
+import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.NDUtils;
 import ai.djl.ndarray.index.NDArrayIndexer;
 import ai.djl.ndarray.internal.NDArrayEx;
@@ -22,8 +23,10 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.nn.recurrent.RNN;
-import java.util.List;
+
 import org.tensorflow.internal.c_api.TFE_TensorHandle;
+
+import java.util.List;
 
 public class TfNDArrayEx implements NDArrayEx {
 
@@ -555,8 +558,8 @@ public class TfNDArrayEx implements NDArrayEx {
 
     /** {@inheritDoc} */
     @Override
-    public NDArrayIndexer getIndexer() {
-        return new TfNDArrayIndexer(array.getManager());
+    public NDArrayIndexer getIndexer(NDManager manager) {
+        return new TfNDArrayIndexer((TfNDManager) manager);
     }
 
     /** {@inheritDoc} */

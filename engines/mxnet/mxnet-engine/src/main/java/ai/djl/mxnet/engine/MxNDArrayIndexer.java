@@ -18,6 +18,7 @@ import ai.djl.ndarray.index.NDArrayIndexer;
 import ai.djl.ndarray.index.full.NDIndexFullPick;
 import ai.djl.ndarray.index.full.NDIndexFullSlice;
 import ai.djl.ndarray.types.Shape;
+
 import java.util.Stack;
 
 /** The {@link NDArrayIndexer} used by the {@link MxNDArray}. */
@@ -37,8 +38,7 @@ public class MxNDArrayIndexer extends NDArrayIndexer {
         params.addParam("axis", fullPick.getAxis());
         params.addParam("keepdims", true);
         params.add("mode", "wrap");
-        return array.getManager()
-                .invoke("pick", new NDList(array, fullPick.getIndices()), params)
+        return manager.invoke("pick", new NDList(array, fullPick.getIndices()), params)
                 .singletonOrThrow();
     }
 
@@ -51,7 +51,7 @@ public class MxNDArrayIndexer extends NDArrayIndexer {
         params.addTupleParam("end", fullSlice.getMax());
         params.addTupleParam("step", fullSlice.getStep());
 
-        NDArray result = ((MxNDManager) array.getManager()).invoke("_npi_slice", array, params);
+        NDArray result = manager.invoke("_npi_slice", array, params);
         int[] toSqueeze = fullSlice.getToSqueeze();
         if (toSqueeze.length > 0) {
             NDArray oldResult = result;
@@ -83,12 +83,11 @@ public class MxNDArrayIndexer extends NDArrayIndexer {
         prepareValue.add(prepareValue.peek().reshape(targetShape));
         prepareValue.add(prepareValue.peek().broadcast(fullSlice.getShape()));
 
-        array.getManager()
-                .invoke(
-                        "_npi_slice_assign",
-                        new NDArray[] {array, prepareValue.peek()},
-                        new NDArray[] {array},
-                        params);
+        manager.invoke(
+                "_npi_slice_assign",
+                new NDArray[] {array, prepareValue.peek()},
+                new NDArray[] {array},
+                params);
         for (NDArray toClean : prepareValue) {
             if (toClean != value) {
                 toClean.close();
@@ -105,11 +104,7 @@ public class MxNDArrayIndexer extends NDArrayIndexer {
         params.addTupleParam("end", fullSlice.getMax());
         params.addTupleParam("step", fullSlice.getStep());
         params.addParam("scalar", value);
-        array.getManager()
-                .invoke(
-                        "_npi_slice_assign_scalar",
-                        new NDArray[] {array},
-                        new NDArray[] {array},
-                        params);
+        manager.invoke(
+                "_npi_slice_assign_scalar", new NDArray[] {array}, new NDArray[] {array}, params);
     }
 }

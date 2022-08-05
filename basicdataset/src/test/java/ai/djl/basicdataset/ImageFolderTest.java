@@ -29,15 +29,16 @@ import ai.djl.training.TrainingConfig;
 import ai.djl.training.dataset.Batch;
 import ai.djl.training.dataset.RandomAccessDataset;
 import ai.djl.training.loss.Loss;
-import ai.djl.translate.Pipeline;
 import ai.djl.translate.TranslateException;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import org.testng.Assert;
-import org.testng.annotations.Test;
 
 public class ImageFolderTest {
 
@@ -52,8 +53,8 @@ public class ImageFolderTest {
             ImageFolder dataset =
                     ImageFolder.builder()
                             .setRepository(repository)
-                            .optPipeline(
-                                    new Pipeline().add(new Resize(100, 100)).add(new ToTensor()))
+                            .addTransform(new Resize(100, 100))
+                            .addTransform(new ToTensor())
                             .setSampling(1, false)
                             .build();
 

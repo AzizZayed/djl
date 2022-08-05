@@ -25,7 +25,9 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.ndarray.types.SparseFormat;
 import ai.djl.util.PairList;
+
 import com.sun.jna.Pointer;
+
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -277,7 +279,7 @@ public class MxNDManager extends BaseNDManager {
     @Override
     public MxNDManager newSubManager(Device dev) {
         MxNDManager manager = new MxNDManager(this, dev, version);
-        attachInternal(manager.uid, manager);
+        attachUncappedInternal(manager.uid, manager);
         return manager;
     }
 

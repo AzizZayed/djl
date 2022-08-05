@@ -14,13 +14,11 @@
 package ai.djl.tensorflow.engine;
 
 import ai.djl.Device;
-import ai.djl.engine.EngineException;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.types.DataType;
+import ai.djl.tensorflow.engine.javacpp.JavacppUtils;
 import ai.djl.util.Preconditions;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.IntPointer;
 import org.bytedeco.javacpp.Pointer;
@@ -31,6 +29,10 @@ import org.tensorflow.internal.c_api.TFE_Op;
 import org.tensorflow.internal.c_api.TFE_TensorHandle;
 import org.tensorflow.internal.c_api.TF_Status;
 import org.tensorflow.internal.c_api.global.tensorflow;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** An {@code TfOpExecutor} for executing TensorFlow operation eagerly. */
 final class TfOpExecutor implements AutoCloseable {
@@ -50,6 +52,7 @@ final class TfOpExecutor implements AutoCloseable {
             // keep the native pointer alive outside of the scope
             opHandle.retainReference();
         }
+        setDevice(manager.getDevice());
     }
 
     public NDArray[] build(int numOutputs) {
@@ -133,15 +136,8 @@ final class TfOpExecutor implements AutoCloseable {
 
     @SuppressWarnings({"unchecked", "try"})
     public TfOpExecutor setDevice(Device device) {
-        String deviceStr;
         try (PointerScope ignore = new PointerScope()) {
-            if (device.getDeviceType().equals(Device.Type.CPU)) {
-                deviceStr = "/device:CPU:0";
-            } else if (device.getDeviceType().equals(Device.Type.GPU)) {
-                deviceStr = "/device:GPU:" + device.getDeviceId();
-            } else {
-                throw new EngineException("Unknown device type to TensorFlow Engine: " + device);
-            }
+            String deviceStr = JavacppUtils.toTfDevice(device);
             TF_Status status = TF_Status.newStatus();
             tensorflow.TFE_OpSetDevice(opHandle, deviceStr, status);
             status.throwExceptionIfNotOK();

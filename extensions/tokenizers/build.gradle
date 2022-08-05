@@ -6,8 +6,8 @@ dependencies {
     testImplementation("org.testng:testng:${testng_version}") {
         exclude group: "junit", module: "junit"
     }
-
-    testImplementation(project(":testing"))
+    testImplementation project(":engines:pytorch:pytorch-engine")
+    testImplementation project(":testing")
     testImplementation "org.slf4j:slf4j-simple:${slf4j_version}"
 }
 
@@ -82,6 +82,14 @@ task compileJNI {
             into ciDir
         }
         delete System.getProperty("user.home") + "/.djl.ai/tokenizers"
+    }
+}
+
+task formatPython {
+    doFirst {
+        exec {
+            commandLine "bash", "-c", "find . -name '*.py' -print0 | xargs -0 yapf --in-place"
+        }
     }
 }
 

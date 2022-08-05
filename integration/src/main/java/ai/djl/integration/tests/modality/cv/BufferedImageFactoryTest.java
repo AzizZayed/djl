@@ -19,9 +19,11 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.testing.Assertions;
-import java.io.IOException;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
 
 public class BufferedImageFactoryTest {
     @Test
@@ -41,9 +43,14 @@ public class BufferedImageFactoryTest {
         try (NDManager manager = NDManager.newBaseManager()) {
             NDArray array = manager.arange(0.0f, 12.0f).reshape(3, 2, 2);
             ImageFactory factory = ImageFactory.getInstance();
-            Image image = factory.fromNDArray(array.toType(DataType.INT8, true));
+            Image image = factory.fromNDArray(array);
             NDArray converted =
                     image.toNDArray(manager).transpose(2, 0, 1).toType(DataType.FLOAT32, true);
+            Assertions.assertAlmostEquals(array, converted);
+
+            array = array.transpose(1, 2, 0);
+            image = factory.fromNDArray(array);
+            converted = image.toNDArray(manager).toType(DataType.FLOAT32, false);
             Assertions.assertAlmostEquals(array, converted);
         }
     }

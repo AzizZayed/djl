@@ -16,6 +16,7 @@ import ai.djl.ndarray.NDList;
 import ai.djl.pytorch.engine.PtNDArray;
 import ai.djl.pytorch.engine.PtNDManager;
 import ai.djl.util.NativeResource;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -284,6 +285,24 @@ public class IValue extends NativeResource<Long> {
             ++i;
         }
         return new IValue(PyTorchLibrary.LIB.iValueFromStringMap(keys, handles));
+    }
+
+    /**
+     * Creates a new {@code IValue} of type {@code Map[String, IValue]}.
+     *
+     * @param map the Map[String, IValue] value
+     * @return a new {@code IValue} of type {@code Map[String, IValue]}
+     */
+    public static IValue stringIValueMapFrom(Map<String, IValue> map) {
+        String[] keys = new String[map.size()];
+        long[] handles = new long[map.size()];
+        int i = 0;
+        for (Map.Entry<String, IValue> entry : map.entrySet()) {
+            keys[i] = entry.getKey();
+            handles[i] = entry.getValue().getHandle();
+            ++i;
+        }
+        return new IValue(PyTorchLibrary.LIB.iValueFromStringIValueMap(keys, handles));
     }
 
     /**

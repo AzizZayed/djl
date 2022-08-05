@@ -24,6 +24,7 @@ import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 import ai.djl.util.Progress;
 import ai.djl.util.RandomUtils;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -34,6 +35,11 @@ import java.util.stream.IntStream;
 /**
  * RandomAccessDataset represent the dataset that support random access reads. i.e. it could access
  * a specific data item given the index.
+ *
+ * <p>Almost all datasets in DJL extend, either directly or indirectly, {@link RandomAccessDataset}.
+ *
+ * @see <a href="http://docs.djl.ai/docs/development/how_to_use_dataset.html">The guide to
+ *     implementing a custom dataset</a>
  */
 public abstract class RandomAccessDataset implements Dataset {
 

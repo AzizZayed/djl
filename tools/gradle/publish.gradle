@@ -5,6 +5,7 @@ configure([
         project(':engines:ml:xgboost'),
         project(':engines:mxnet:mxnet-engine'),
         project(':engines:mxnet:mxnet-model-zoo'),
+        project(':engines:onnxruntime:onnxruntime-android'),
         project(':engines:onnxruntime:onnxruntime-engine'),
         project(':engines:paddlepaddle:paddlepaddle-engine'),
         project(':engines:paddlepaddle:paddlepaddle-model-zoo'),
@@ -16,11 +17,13 @@ configure([
         project(':engines:tensorflow:tensorflow-model-zoo'),
         project(':engines:tensorrt'),
         project(':engines:tflite:tflite-engine'),
+        project(':extensions:audio'),
         project(':extensions:aws-ai'),
         project(':extensions:fasttext'),
         project(':extensions:hadoop'),
         project(':extensions:opencv'),
         project(':extensions:sentencepiece'),
+        project(':extensions:tablesaw'),
         project(':extensions:tokenizers'),
         project(':model-zoo')]) {
     apply plugin: "maven-publish"

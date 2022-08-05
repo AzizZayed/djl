@@ -19,6 +19,9 @@ import ai.djl.repository.MRL;
 import ai.djl.repository.Repository;
 import ai.djl.util.JsonUtils;
 import ai.djl.util.Progress;
+
+import org.apache.commons.csv.CSVFormat;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -27,8 +30,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import org.apache.commons.csv.CSVFormat;
 
 /**
  * Ames house pricing dataset from
@@ -112,7 +115,13 @@ public class AmesRandomAccess extends CsvDataset {
             artifactId = ARTIFACT_ID;
             usage = Usage.TRAIN;
             csvFormat =
-                    CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase().withTrim();
+                    CSVFormat.DEFAULT
+                            .builder()
+                            .setHeader()
+                            .setSkipHeaderRecord(true)
+                            .setIgnoreHeaderCase(true)
+                            .setTrim(true)
+                            .build();
         }
 
         /** {@inheritDoc} */
@@ -193,7 +202,7 @@ public class AmesRandomAccess extends CsvDataset {
             if (af.categorical.contains(name)) {
                 Map<String, Integer> map = af.featureToMap.get(name);
                 if (map == null) {
-                    return addCategoricalFeature(name);
+                    return addCategoricalFeature(name, onehotEncode);
                 }
                 return addCategoricalFeature(name, map, onehotEncode);
             }
@@ -231,7 +240,9 @@ public class AmesRandomAccess extends CsvDataset {
 
         private void parseFeatures() {
             if (af == null) {
-                try (InputStream is = AmesRandomAccess.class.getResourceAsStream("ames.json");
+                try (InputStream is =
+                                Objects.requireNonNull(
+                                        AmesRandomAccess.class.getResourceAsStream("ames.json"));
                         Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
                     af = JsonUtils.GSON.fromJson(reader, AmesFeatures.class);
                 } catch (IOException e) {

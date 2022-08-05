@@ -14,11 +14,13 @@ package ai.djl.pytorch.engine;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.index.NDArrayIndexer;
+import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.index.dim.NDIndexBooleans;
 import ai.djl.ndarray.index.full.NDIndexFullPick;
 import ai.djl.ndarray.index.full.NDIndexFullSlice;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.pytorch.jni.JniUtils;
+
 import java.util.Stack;
 
 /** The {@link NDArrayIndexer} used by the {@link PtNDArray}. */
@@ -43,8 +45,49 @@ public class PtNDArrayIndexer extends NDArrayIndexer {
         long[] min = fullSlice.getMin();
         long[] max = fullSlice.getMax();
         long[] step = fullSlice.getStep();
-        try (PtNDArray res = JniUtils.index(manager.from(array), min, max, step)) {
+        try (PtNDArray res = JniUtils.index(manager.from(array), min, max, step, manager)) {
             return res.squeeze(fullSlice.getToSqueeze());
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NDArray get(NDArray array, NDIndex index) {
+        if (index.getRank() == 0) {
+            if (array.getShape().isScalar()) {
+                return array.getManager() == manager
+                        ? array.duplicate()
+                        : manager.create(
+                                array.toByteBuffer(), array.getShape(), array.getDataType());
+            }
+            index.addAllDim();
+        }
+
+        if (array == null || array instanceof PtNDArray && array.getManager() == manager) {
+            return JniUtils.indexAdv((PtNDArray) array, index);
+        } else {
+            PtNDArray arrayNew =
+                    manager.create(array.toByteBuffer(), array.getShape(), array.getDataType());
+            return JniUtils.indexAdv(arrayNew, index);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void set(NDArray array, NDIndex index, Object data) {
+        PtNDArray ptArray =
+                array instanceof PtNDArray
+                        ? (PtNDArray) array
+                        : manager.create(
+                                array.toByteBuffer(), array.getShape(), array.getDataType());
+
+        if (data instanceof Number) {
+            JniUtils.indexAdvPut(ptArray, index, (PtNDArray) manager.create((Number) data));
+        } else if (data instanceof NDArray) {
+            JniUtils.indexAdvPut(ptArray, index, (PtNDArray) data);
+        } else {
+            throw new IllegalArgumentException(
+                    "The type of value to assign cannot be other than NDArray and Number.");
         }
     }
 

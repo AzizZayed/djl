@@ -12,11 +12,13 @@
  */
 package ai.djl.huggingface.tokenizers;
 
+import ai.djl.huggingface.tokenizers.jni.CharSpan;
 import ai.djl.huggingface.tokenizers.jni.LibUtils;
 import ai.djl.huggingface.tokenizers.jni.TokenizersLibrary;
 import ai.djl.modality.nlp.preprocess.Tokenizer;
 import ai.djl.util.NativeResource;
 import ai.djl.util.Utils;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -33,9 +35,12 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
 
     private boolean addSpecialTokens;
 
-    private HuggingFaceTokenizer(long handle, boolean addSpecialTokens) {
+    private HuggingFaceTokenizer(long handle, Map<String, String> options) {
         super(handle);
-        this.addSpecialTokens = addSpecialTokens;
+        this.addSpecialTokens =
+                options == null
+                        || !options.containsKey("addSpecialTokens")
+                        || Boolean.parseBoolean(options.get("addSpecialTokens"));
     }
 
     /**
@@ -59,11 +64,7 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
         LibUtils.checkStatus();
 
         long handle = TokenizersLibrary.LIB.createTokenizer(identifier);
-        boolean addSpecialTokens =
-                options == null
-                        || !options.containsKey("addSpecialTokens")
-                        || Boolean.parseBoolean(options.get("addSpecialTokens"));
-        return new HuggingFaceTokenizer(handle, addSpecialTokens);
+        return new HuggingFaceTokenizer(handle, options);
     }
 
     /**
@@ -87,6 +88,9 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
      */
     public static HuggingFaceTokenizer newInstance(Path modelPath, Map<String, String> options)
             throws IOException {
+        if (Files.isDirectory(modelPath)) {
+            modelPath = modelPath.resolve("tokenizer.json");
+        }
         try (InputStream is = Files.newInputStream(modelPath)) {
             return newInstance(is, options);
         }
@@ -106,9 +110,7 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
         String json = Utils.toString(is);
 
         long handle = TokenizersLibrary.LIB.createTokenizerFromString(json);
-        boolean addSpecialTokens =
-                options != null && Boolean.parseBoolean(options.get("addSpecialTokens"));
-        return new HuggingFaceTokenizer(handle, addSpecialTokens);
+        return new HuggingFaceTokenizer(handle, options);
     }
 
     /** {@inheritDoc} */
@@ -122,7 +124,7 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
     @Override
     public String buildSentence(List<String> tokens) {
         // TODO:
-        return String.join(" ", tokens);
+        return String.join(" ", tokens).replace(" ##", "").trim();
     }
 
     /** {@inheritDoc} */
@@ -137,12 +139,63 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
     /**
      * Returns the {@code Encoding} of the input sentence.
      *
-     * @param input the input sentence
+     * @param text the input sentence
+     * @param addSpecialTokens whether to encode the sequence with special tokens relative to their
+     *     model
      * @return the {@code Encoding} of the input sentence
      */
-    public Encoding encode(String input) {
-        long encoding = TokenizersLibrary.LIB.encode(getHandle(), input, addSpecialTokens);
+    public Encoding encode(String text, boolean addSpecialTokens) {
+        long encoding = TokenizersLibrary.LIB.encode(getHandle(), text, addSpecialTokens);
         return toEncoding(encoding);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentence.
+     *
+     * @param text the input sentence
+     * @return the {@code Encoding} of the input sentence
+     */
+    public Encoding encode(String text) {
+        return encode(text, addSpecialTokens);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentence.
+     *
+     * @param text the input sentence
+     * @param textPair the second input sentence
+     * @param addSpecialTokens whether to encode the sequence with special tokens relative to their
+     *     model
+     * @return the {@code Encoding} of the input sentence
+     */
+    public Encoding encode(String text, String textPair, boolean addSpecialTokens) {
+        long encoding =
+                TokenizersLibrary.LIB.encodeDual(getHandle(), text, textPair, addSpecialTokens);
+        return toEncoding(encoding);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentence.
+     *
+     * @param text the input sentence
+     * @param textPair the second input sentence
+     * @return the {@code Encoding} of the input sentence
+     */
+    public Encoding encode(String text, String textPair) {
+        return encode(text, textPair, addSpecialTokens);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentences.
+     *
+     * @param inputs the input sentences
+     * @param addSpecialTokens whether to encode the sequence with special tokens relative to their
+     *     model
+     * @return the {@code Encoding} of the input sentences
+     */
+    public Encoding encode(List<String> inputs, boolean addSpecialTokens) {
+        String[] array = inputs.toArray(new String[0]);
+        return encode(array, addSpecialTokens);
     }
 
     /**
@@ -152,8 +205,20 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
      * @return the {@code Encoding} of the input sentences
      */
     public Encoding encode(List<String> inputs) {
-        String[] array = inputs.toArray(new String[0]);
-        return encode(array);
+        return encode(inputs, addSpecialTokens);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentences.
+     *
+     * @param inputs the input sentences
+     * @param addSpecialTokens whether to encode the sequence with special tokens relative to their
+     *     model
+     * @return the {@code Encoding} of the input sentences
+     */
+    public Encoding encode(String[] inputs, boolean addSpecialTokens) {
+        long encoding = TokenizersLibrary.LIB.encodeList(getHandle(), inputs, addSpecialTokens);
+        return toEncoding(encoding);
     }
 
     /**
@@ -163,8 +228,20 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
      * @return the {@code Encoding} of the input sentences
      */
     public Encoding encode(String[] inputs) {
-        long encoding = TokenizersLibrary.LIB.encodeList(getHandle(), inputs, addSpecialTokens);
-        return toEncoding(encoding);
+        return encode(inputs, addSpecialTokens);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentence in batch.
+     *
+     * @param inputs the batch of input sentence
+     * @param addSpecialTokens whether to encode the sequence with special tokens relative to their
+     *     model
+     * @return the {@code Encoding} of the input sentence in batch
+     */
+    public Encoding[] batchEncode(List<String> inputs, boolean addSpecialTokens) {
+        String[] array = inputs.toArray(new String[0]);
+        return batchEncode(array, addSpecialTokens);
     }
 
     /**
@@ -174,8 +251,24 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
      * @return the {@code Encoding} of the input sentence in batch
      */
     public Encoding[] batchEncode(List<String> inputs) {
-        String[] array = inputs.toArray(new String[0]);
-        return batchEncode(array);
+        return batchEncode(inputs, addSpecialTokens);
+    }
+
+    /**
+     * Returns the {@code Encoding} of the input sentence in batch.
+     *
+     * @param inputs the batch of input sentence
+     * @param addSpecialTokens whether to encode the sequence with special tokens relative to their
+     *     model
+     * @return the {@code Encoding} of the input sentence in batch
+     */
+    public Encoding[] batchEncode(String[] inputs, boolean addSpecialTokens) {
+        long[] encodings = TokenizersLibrary.LIB.batchEncode(getHandle(), inputs, addSpecialTokens);
+        Encoding[] ret = new Encoding[encodings.length];
+        for (int i = 0; i < encodings.length; ++i) {
+            ret[i] = toEncoding(encodings[i]);
+        }
+        return ret;
     }
 
     /**
@@ -185,12 +278,112 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
      * @return the {@code Encoding} of the input sentence in batch
      */
     public Encoding[] batchEncode(String[] inputs) {
-        long[] encodings = TokenizersLibrary.LIB.batchEncode(getHandle(), inputs, addSpecialTokens);
-        Encoding[] ret = new Encoding[encodings.length];
-        for (int i = 0; i < encodings.length; ++i) {
-            ret[i] = toEncoding(encodings[i]);
+        return batchEncode(inputs, addSpecialTokens);
+    }
+
+    /**
+     * Returns the decoded String from the input ids.
+     *
+     * @param ids the input ids
+     * @param skipSpecialTokens whether to remove special tokens in the decoding
+     * @return the decoded String from the input ids
+     */
+    public String decode(long[] ids, boolean skipSpecialTokens) {
+        return TokenizersLibrary.LIB.decode(getHandle(), ids, skipSpecialTokens);
+    }
+
+    /**
+     * Returns the decoded String from the input ids.
+     *
+     * @param ids the input ids
+     * @return the decoded String from the input ids
+     */
+    public String decode(long[] ids) {
+        return decode(ids, !addSpecialTokens);
+    }
+
+    /**
+     * Sets the truncation and padding behavior for the tokenizer.
+     *
+     * @param truncationStrategy the {@code TruncationStrategy} to use
+     * @param paddingStrategy the {@code PaddingStrategy} to use
+     * @param maxLength the maximum length to pad/truncate sequences to
+     */
+    public void setTruncationAndPadding(
+            TruncationStrategy truncationStrategy,
+            PaddingStrategy paddingStrategy,
+            long maxLength) {
+        setTruncationAndPadding(truncationStrategy, paddingStrategy, maxLength, 0, 0);
+    }
+
+    /**
+     * Sets the truncation and padding behavior for the tokenizer.
+     *
+     * @param truncationStrategy the {@code TruncationStrategy} to use
+     * @param paddingStrategy the {@code PaddingStrategy} to use
+     * @param maxLength the maximum length to pad/truncate sequences to
+     * @param stride value to use when handling overflow
+     */
+    public void setTruncationAndPadding(
+            TruncationStrategy truncationStrategy,
+            PaddingStrategy paddingStrategy,
+            long maxLength,
+            long stride) {
+        setTruncationAndPadding(truncationStrategy, paddingStrategy, maxLength, stride, 0);
+    }
+
+    /**
+     * Sets the truncation and padding behavior for the tokenizer.
+     *
+     * @param truncationStrategy the {@code TruncationStrategy} to use
+     * @param paddingStrategy the {@code PaddingStrategy} to use
+     * @param maxLength the maximum length to pad/truncate sequences to
+     * @param stride value to use when handling overflow
+     * @param padToMultipleOf pad sequence length to multiple of value
+     */
+    public void setTruncationAndPadding(
+            TruncationStrategy truncationStrategy,
+            PaddingStrategy paddingStrategy,
+            long maxLength,
+            long stride,
+            long padToMultipleOf) {
+        setTruncation(truncationStrategy, maxLength, stride);
+        setPadding(paddingStrategy, maxLength, padToMultipleOf);
+    }
+
+    /**
+     * Sets the truncation behavior for the tokenizer.
+     *
+     * @param truncationStrategy the {@code TruncationStrategy} to use
+     * @param maxLength the maximum length to truncate sequences to
+     * @param stride value to use when handling overflow
+     */
+    public void setTruncation(TruncationStrategy truncationStrategy, long maxLength, long stride) {
+        if (truncationStrategy == TruncationStrategy.DO_NOT_TRUNCATE) {
+            TokenizersLibrary.LIB.disableTruncation(getHandle());
+        } else {
+            TokenizersLibrary.LIB.setTruncation(
+                    getHandle(), maxLength, truncationStrategy.toString().toLowerCase(), stride);
         }
-        return ret;
+    }
+
+    /**
+     * Sets the padding behavior for the tokenizer.
+     *
+     * @param paddingStrategy the {@code PaddingStrategy} to use
+     * @param maxLength the maximum length to pad sequences to
+     * @param padToMultipleOf pad sequence length to multiple of value
+     */
+    public void setPadding(PaddingStrategy paddingStrategy, long maxLength, long padToMultipleOf) {
+        if (paddingStrategy == PaddingStrategy.DO_NOT_PAD) {
+            TokenizersLibrary.LIB.disablePadding(getHandle());
+        } else {
+            TokenizersLibrary.LIB.setPadding(
+                    getHandle(),
+                    maxLength,
+                    paddingStrategy.toString().toLowerCase(),
+                    padToMultipleOf);
+        }
     }
 
     private Encoding toEncoding(long encoding) {
@@ -200,8 +393,23 @@ public final class HuggingFaceTokenizer extends NativeResource<Long> implements 
         long[] wordIds = TokenizersLibrary.LIB.getWordIds(encoding);
         long[] attentionMask = TokenizersLibrary.LIB.getAttentionMask(encoding);
         long[] specialTokenMask = TokenizersLibrary.LIB.getSpecialTokenMask(encoding);
+        CharSpan[] charSpans = TokenizersLibrary.LIB.getTokenCharSpans(encoding);
 
         TokenizersLibrary.LIB.deleteEncoding(encoding);
-        return new Encoding(ids, typeIds, tokens, wordIds, attentionMask, specialTokenMask);
+        return new Encoding(
+                ids, typeIds, tokens, wordIds, attentionMask, specialTokenMask, charSpans);
+    }
+
+    enum TruncationStrategy {
+        DO_NOT_TRUNCATE,
+        LONGEST_FIRST,
+        ONLY_FIRST,
+        ONLY_SECOND
+    }
+
+    enum PaddingStrategy {
+        DO_NOT_PAD,
+        BATCH_LONGEST,
+        FIXED
     }
 }

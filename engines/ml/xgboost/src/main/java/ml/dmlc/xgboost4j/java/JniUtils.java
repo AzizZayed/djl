@@ -17,8 +17,10 @@ import ai.djl.ml.xgboost.XgbNDArray;
 import ai.djl.ml.xgboost.XgbNDManager;
 import ai.djl.ml.xgboost.XgbSymbolBlock;
 import ai.djl.ndarray.types.Shape;
+
 import com.sun.jna.Native;
 import com.sun.jna.PointerProxy;
+
 import java.nio.Buffer;
 
 /** DJL class that has access to XGBoost JNI. */
@@ -49,6 +51,19 @@ public final class JniUtils {
         int col = (int) shape.get(1);
         long handle = new PointerProxy(Native.getDirectBufferPointer(buf)).getPeer();
         checkCall(XGBoostJNI.XGDMatrixCreateFromMatRef(handle, rol, col, missing, handles));
+        return handles[0];
+    }
+
+    public static long createDMatrix(ColumnBatch columnBatch, float missing, int nthread) {
+        long[] handles = new long[1];
+        String json = columnBatch.getFeatureArrayInterface();
+        if (json == null || json.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Expecting non-empty feature columns' array interface");
+        }
+        checkCall(
+                XGBoostJNI.XGDMatrixCreateFromArrayInterfaceColumns(
+                        json, missing, nthread, handles));
         return handles[0];
     }
 

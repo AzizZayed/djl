@@ -20,6 +20,7 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
 import ai.djl.util.PairList;
+
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -164,7 +165,7 @@ public interface NDManager extends AutoCloseable {
     ByteBuffer allocateDirect(int capacity);
 
     /**
-     * Creates a new {@code NDArray} if the input {@link NDArray} is from external engine.
+     * Creates a new {@code NDArray} if the input {@link NDArray} is from an external engine.
      *
      * @param array the input {@code NDArray}
      * @return a new {@code NDArray} if the input {@code NDArray} is from external engine
@@ -1390,6 +1391,13 @@ public interface NDManager extends AutoCloseable {
     boolean isOpen();
 
     /**
+     * Caps this manager to prevent unintentional attachment of resources. This is useful to detect
+     * memory leaks at an early point in time. The attachment of sub managers is still allowed after
+     * this method has been called.
+     */
+    void cap();
+
+    /**
      * Returns the parent {@code NDManager}.
      *
      * @return the parent {@code NDManager}
@@ -1433,6 +1441,20 @@ public interface NDManager extends AutoCloseable {
      * @param resource the {@link AutoCloseable} resource to be attached
      */
     void attachInternal(String resourceId, AutoCloseable resource);
+
+    /**
+     * Attaches a resource to this {@code NDManager} circumventing any cap protection.
+     *
+     * <p>The attached resource will be closed when this {@code NDManager} is closed.
+     *
+     * <p>This attachment is internal. Many resources will internally track which manager they are
+     * attached to. In that case, you should call {@link NDResource#attach(NDManager)} instead and
+     * that should then call attachInternal.
+     *
+     * @param resourceId the unique resourceId
+     * @param resource the {@link AutoCloseable} resource to be attached
+     */
+    void attachUncappedInternal(String resourceId, AutoCloseable resource);
 
     /**
      * Temporarily attaches a resource to this {@code NDManager} to be returned when this is closed.

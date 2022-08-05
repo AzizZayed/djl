@@ -20,6 +20,7 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
+
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -92,6 +93,18 @@ public class SequentialBlock extends AbstractBlock {
     }
 
     /**
+     * Adds a {@link LambdaBlock} that applies the given function to the sequence of blocks.
+     *
+     * @param f the function forms the {@link LambdaBlock}
+     * @param name the function name
+     * @return this block
+     */
+    public SequentialBlock add(Function<NDList, NDList> f, String name) {
+        add(new LambdaBlock(f, name));
+        return this;
+    }
+
+    /**
      * Adds a {@link LambdaBlock#singleton(Function)} that applies the given function to the
      * sequence of blocks.
      *
@@ -101,6 +114,20 @@ public class SequentialBlock extends AbstractBlock {
      */
     public SequentialBlock addSingleton(Function<NDArray, NDArray> f) {
         add(LambdaBlock.singleton(f));
+        return this;
+    }
+
+    /**
+     * Adds a {@link LambdaBlock#singleton(Function)} that applies the given function to the
+     * sequence of blocks.
+     *
+     * @param f the function forms the {@link LambdaBlock}
+     * @param name the function name
+     * @return this block
+     * @see LambdaBlock#singleton(Function)
+     */
+    public SequentialBlock addSingleton(Function<NDArray, NDArray> f, String name) {
+        add(LambdaBlock.singleton(f, name));
         return this;
     }
 
@@ -181,18 +208,5 @@ public class SequentialBlock extends AbstractBlock {
         } else if (loadVersion != 1) {
             throw new MalformedModelException("Unsupported encoding version: " + loadVersion);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(200);
-        sb.append("Sequential(\n");
-        for (Block block : children.values()) {
-            String blockString = block.toString().replaceAll("(?m)^", "\t");
-            sb.append(blockString).append('\n');
-        }
-        sb.append(')');
-        return sb.toString();
     }
 }
